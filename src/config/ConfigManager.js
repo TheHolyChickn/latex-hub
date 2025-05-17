@@ -17,7 +17,8 @@ const CONFIG_PATHS = {
     preambles: GLib.build_filenamev([CONFIG_DIR, 'preambles', 'preambles.json'])
 };
 
-class ConfigManager {
+var ConfigManager = class ConfigManager {
+
     static getConfigDir() {
         return CONFIG_DIR;
     }
@@ -65,8 +66,9 @@ class ConfigManager {
     static loadPreambles() {
         this.ensureDirExists();
         return this._loadJsonFile(CONFIG_PATHS.preambles, {
-            default: '',
-            custom: {}
+            preambles: [],
+            templates: {},
+            default_template_for_notes: null
         });
     }
 

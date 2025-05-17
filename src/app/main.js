@@ -1,47 +1,16 @@
 'use strict';
 
-const { GLib } = imports.gi;
+imports.gi.versions.Gtk = '4.0';
+imports.gi.versions.Gdk = '4.0';
+const { Gtk, Adw, GLib, Gdk } = imports.gi;
 
 imports.searchPath.unshift(GLib.build_filenamev([
     GLib.get_current_dir(),
     'src'
 ]));
 
-const { ConfigManager, ConfigUtils } = imports.config;
-
-console.log('LoadConfig exists?', typeof ConfigManager.loadConfig === 'function');
-
-function testConfigSystem() {
-    let config = ConfigManager.loadConfig();
-    console.log('Initial Config:', JSON.stringify(config, null, 2));
-
-    ConfigUtils.set('root_dir', '~/Pictures/University/');
-    console.log('After setting root_dir:', ConfigUtils.get('root_dir'));
-
-    ConfigUtils.set('github_user', 'latex_pro');
-    console.log('Github user:', ConfigUtils.get('github.user'));
-
-    ConfigUtils.set('projects_dir', '~/Pictures/University/Projects/');
-    console.log('Updated projects_dir:', ConfigUtils.get('projects_dir'));
-
-    ConfigUtils.set('current_semester', '2');
-    console.log('Updated current_semester:', ConfigUtils.get('current_semester'));
-
-    ConfigUtils.delete('current_semester');
-    console.log('Deleted current_semester:', ConfigUtils.get('current_semester'));
-
-    const newConfig = ConfigManager.loadConfig();
-    console.log('New Config:', JSON.stringify(newConfig, null, 2));
-
-    console.log('Nonexistant key:', ConfigUtils.get('nonexistant.key'));
-}
-
-testConfigSystem();
-/*'use strict';
-
-imports.gi.versions.Gtk = '4.0';
-imports.gi.versions.Gdk = '4.0';
-const { Gtk, Adw, GLib, Gdk } = imports.gi;
+const { ConfigManager } = imports.config.ConfigManager;
+const { ConfigUtils } = imports.config.ConfigUtils;
 
 function getDayWithSuffix(date) {
     const j = date % 10, k = date % 100;
@@ -127,6 +96,27 @@ class LatexHubApp {
     }
 }
 
-const app = new LatexHubApp();
-app.run(ARGV);
-*/
+//const app = new LatexHubApp();
+//app.run(ARGV);
+
+function testConfigSystem() {
+    let config = ConfigManager.loadConfig();
+    console.log('Initial Config:', JSON.stringify(config, null, 2));
+
+    ConfigUtils.set('root_dir', '~/Pictures/University/');
+    console.log('After setting root_dir:', ConfigUtils.get('root_dir'));
+
+    ConfigUtils.set('github_user', 'latex_pro');
+    console.log('Github user:', ConfigUtils.get('github_user'));
+
+    ConfigUtils.set('projects_dir', '~/Pictures/University/Projects/');
+    console.log('Updated projects_dir:', ConfigUtils.get('projects_dir'));
+
+    ConfigUtils.set('current_semester', '2');
+    console.log('Updated current_semester:', ConfigUtils.get('current_semester'));
+
+    const newConfig = ConfigManager.loadConfig();
+    console.log('New Config:', JSON.stringify(newConfig, null, 2));
+
+    console.log('Nonexistant key:', ConfigUtils.get('nonexistant.key'));
+}

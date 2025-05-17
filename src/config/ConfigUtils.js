@@ -4,9 +4,9 @@
 
 'use strict';
 
-const ConfigManager = imports.config.ConfigManager;
+const { ConfigManager } = imports.config.ConfigManager;
 
-class ConfigUtils {
+var ConfigUtils = class ConfigUtils {
     static get(key)  {
         const config = ConfigManager.loadConfig();
         return this._getNestedProperty(config, key);
@@ -14,7 +14,7 @@ class ConfigUtils {
 
     static set(key, value) {
         const config = ConfigManager.loadConfig();
-        this._setNestedProperty(config, key);
+        this._setNestedProperty(config, key, value);
         ConfigManager.saveConfig(config);
     }
 
@@ -28,7 +28,9 @@ class ConfigUtils {
 
         let current = obj;
         for (const k of keys) {
-            current[k] = current [k] || {};
+            if (typeof current[k] !== 'object' || current[k] === null) {
+                current[k] = {};
+            }
             current = current[k];
         }
         current[lastKey] = value;
