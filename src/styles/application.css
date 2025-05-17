@@ -1,0 +1,26 @@
+.main-window {
+    background-color: #f6f5f4;
+}
+
+.custom-label {
+    font-weight: bold;
+    font-size: 18px;
+    color: #1c71d8;
+    margin-bottom: 20px;
+}
+
+.custom-button {
+    background-color: #1c71d8;
+    color: white;
+    border-radius: 8px;
+    padding: 12px 24px;
+    transition: 0.3s;
+}
+
+.custom-button:hover {
+    background-color: #1a5fb4;
+}
+
+.custom-button:active {
+    background-color: #153c6e;
+}
