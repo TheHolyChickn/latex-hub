@@ -34,11 +34,17 @@ var ConfigManager = class ConfigManager {
         }
     }
 
+    // main config
+
     static loadConfig() {
         this.ensureDirExists();
         return this._loadJsonFile(CONFIG_PATHS.config, {
             root_dir: GLib.build_filenamev([GLib.get_home_dir(), 'Classes']),
             projects_dir: GLib.build_filenamev([GLib.get_home_dir(), 'Projects']),
+            current_courses: [],
+            current_projects: [],
+            archived_courses: [],
+            archived_projects: [],
             github_user: '',
             current_semester: ''
         });
@@ -49,12 +55,13 @@ var ConfigManager = class ConfigManager {
         this._saveJsonFile(CONFIG_PATHS.config, config);
     }
 
+    // working logs
+
     static loadLogs() {
         this.ensureDirExists();
         return this._loadJsonFile(CONFIG_PATHS.log, {
             work_sessions: [],
-            project_times: {},
-            course_times: {}
+            workspace_times: {}
         });
     }
 
@@ -62,6 +69,8 @@ var ConfigManager = class ConfigManager {
         this.ensureDirExists();
         this._saveJsonFile(CONFIG_PATHS.log, logData);
     }
+
+    // preamble config
 
     static loadPreambles() {
         this.ensureDirExists();
@@ -76,6 +85,8 @@ var ConfigManager = class ConfigManager {
         this.ensureDirExists();
         this._saveJsonFile(CONFIG_PATHS.preambles, preambles);
     }
+
+    // other shit
 
     static _loadJsonFile(path, defaultValue = {}) {
         try {
