@@ -42,6 +42,8 @@ What the app should do:
 
 - there will be a lot of preamble files (to create modularity). there should be a button to define custom preambles from a collection of the preambles. 
 
+## Current Progress
+
 Currently, I have only developed the config backends, in `/src/config/*.js`. They work as follows:
 - there are three config files, `config.json`, `logs.json`, and `preambles.json`. The first two are stored in the user's config dir, usually `CONFIG_DIR = ~/.config/LatexHub`, and the third is stored in the subdirectory `CONFIG_DIR/preambles`.
 - `config.json` is the main config file. It tracks
@@ -83,3 +85,5 @@ Currently, I have only developed the config backends, in `/src/config/*.js`. The
   "workspace": the specific course/project name (as would be found in config.current_projects/courses) that was worked on
 }
 ```
+
+I have also ported Gilles Castel's scripts, along with my modifcations, into [legacy-scripts](legacy-scripts).
