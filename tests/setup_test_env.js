@@ -48,7 +48,6 @@ const TEST_COURSES_STRUCTURE = {
             department: "Testing Dept",
             college: "School of Tests",
             professor: "Prof. Tester",
-            preamble_path: "../global_preamble.tex" // Relative to the course dir
         },
         "master.tex": `\\documentclass{article}
 \\title{Test Course Alpha}
@@ -68,7 +67,6 @@ const TEST_COURSES_STRUCTURE = {
             title: "Test Course Beta (No Lectures)",
             short: "TC2",
             course_id: "TC 102",
-            preamble_path: "../global_preamble.tex"
         },
         "master.tex": `\\documentclass{report}
 \\title{Test Course Beta}
@@ -238,16 +236,23 @@ function setupEnvironment() {
 
     // Create dummy global_preamble.tex inside test_courses_root
     const globalPreambleInTestRoot = testCoursesRootDir.get_child('global_preamble.tex');
-    if (!globalPreambleInTestRoot.query_exists(null)) {
-        try {
-            globalPreambleInTestRoot.replace_contents(
-                '% Dummy Global Preamble for Testing (inside test_courses_root)\n\\usepackage{amsmath}\n',
-                null, false, Gio.FileCreateFlags.NONE, null
-            );
-            print(`DEBUG: Created dummy global_preamble.tex in ${globalPreambleInTestRoot.get_path()}`);
-        } catch (e) {
-            print(`DEBUG: Warning: Could not create dummy global_preamble.tex in test_courses_root: ${e.message}`);
-        }
+    // Always try to write/overwrite it to ensure it has the test content
+    try {
+        globalPreambleInTestRoot.replace_contents(
+            '% Dummy Global Preamble for Testing (inside test_courses_root)\n' +
+            '\\usepackage{amsmath}\n' +
+            '\\usepackage{amsfonts}\n' + // Added another common one
+            '\\usepackage{amssymb}\n' +
+            '% Minimal definition for \\lecture{number}{date}{title}\n' +
+            '\\newcommand{\\lecture}[3]{%\n' +
+            '  \\section*{Lecture #1: #3 (#2)}\n' + // A very simple way to display it
+            '  \\par\\noindent\n' +                 // Ensure it starts a new paragraph
+            '}%\n',
+            null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null // REPLACE if exists
+        );
+        print(`DEBUG: Created/Updated dummy global_preamble.tex in ${globalPreambleInTestRoot.get_path()}`);
+    } catch (e) {
+        print(`DEBUG: Warning: Could not create/update dummy global_preamble.tex in test_courses_root: ${e.message}`);
     }
 
     const symlinkFile = Gio.File.new_for_path(GLib.build_filenamev([GLib.get_home_dir(), 'current_course']));

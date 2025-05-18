@@ -194,9 +194,9 @@ function main() {
 
     const testModules = [
         { name: 'Lecture.test.js', importer: () => imports['Lecture.test'] },
-        //{ name: 'Lectures.test.js', importer: () => imports['Lectures.test'] },
-        //{ name: 'Course.test.js', importer: () => imports['Course.test'] },
-        //{ name: 'Courses.test.js', importer: () => imports['Courses.test'] },
+        { name: 'Lectures.test.js', importer: () => imports['Lectures.test'] },
+        { name: 'Course.test.js', importer: () => imports['Course.test'] },
+        { name: 'Courses.test.js', importer: () => imports['Courses.test'] }
     ];
 
     for (const testModuleInfo of testModules) {

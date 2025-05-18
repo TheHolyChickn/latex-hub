@@ -7,8 +7,8 @@ const { Course } = imports.core.Course;
 const { ConfigUtils } = imports.config.ConfigUtils;
 
 // might want to put these into config.json
-const CURRENT_COURSE_SYMLINK_PATH = GLib.build_filenamev([GLib.get_home_dir(), 'current_course']);
-const CURRENT_COURSE_WATCH_FILE_PATH = '/tmp/current_course';
+var CURRENT_COURSE_SYMLINK_PATH = GLib.build_filenamev([GLib.get_home_dir(), 'current_course']);
+var CURRENT_COURSE_WATCH_FILE_PATH = '/tmp/current_course';
 
 /**
  * Manages a collection of Course objects.
@@ -81,7 +81,15 @@ var Courses = class Courses {
         const symlinkFile = Gio.File.new_for_path(CURRENT_COURSE_SYMLINK_PATH);
         try {
             if (symlinkFile.query_exists(null) && symlinkFile.query_file_type(Gio.FileQueryInfoFlags.NONE, null) === Gio.FileType.SYMBOLIC_LINK) { // maybe i should just use watch file?
-                const targetFile = symlinkFile.resolve_relative_path(null);
+                let targetPathString = null;
+                try {
+                    targetPathString = symlinkFile.read_link(null);
+                } catch (e) {
+                    return null;
+                }
+                if (!targetPathString) return null;
+
+                const targetFile = Gio.File.new_for_path(targetPathString);
                 if (targetFile && targetFile.query_exists(null)) {
                     const existingCourse = this.coursesList.find(c => c.path.get_uri() === targetFile.get_uri());
                     if (existingCourse) return existingCourse;
@@ -105,11 +113,19 @@ var Courses = class Courses {
 
         try {
             if (symlinkFile.query_exists(null)) {
+                console.log(`DEBUG Courses.js: Deleting existing symlink: ${symlinkFile.get_path()}`);
                 symlinkFile.delete(null);
             }
 
             if (courseToSet && courseToSet.path) {
-                symlinkFile.make_symbolic_link(courseToSet.path.get_path(), null);
+                console.log(`DEBUG Courses.js: Attempting to create a symlink from ${symlinkFile.get_path()} to ${courseToSet.path.get_path()}`);
+
+                try {
+                    symlinkFile.make_symbolic_link(courseToSet.path.get_path(), null);
+                    console.log(`DEBUG Courses.js: make_symbolic_link call succeeded`);
+                } catch (e) {
+                    console.error(`ERROR Courses.js: faile to create symlink: ${e.message}`);
+                }
 
                 const shortName = courseToSet.info && courseToSet.info.short ? courseToSet.info.short : courseToSet.name;
                 const watchFileContent = `${shortName}\n`;
@@ -120,9 +136,12 @@ var Courses = class Courses {
                     null
                 );
             } else if (!courseToSet) {
+                console.log(`DEBUG Courses.js: Setting current course to null, symlink deleted`);
                 if (watchFile.query_exists(null)) {
                     watchFile.replace_contents("", null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
                 }
+            } else {
+                console.warn("Course.js: set current called with invalid courseToSet object");
             }
         } catch (e) {
             console.error(`Error setting current course to ${courseToSet ? courseToSet.name : 'null'}: ${e.message}`);
