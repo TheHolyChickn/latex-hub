@@ -274,7 +274,7 @@ var PreambleUtils = class PreambleUtils {
             console.log(`PreambleUtils Error: Template "${templateName}" does not exist. Cannot set as default.`);
             return false;
         }
-        let changed = false;
+
         if (config.default_template_for_lecture !== templateName) {
             config.default_template_for_lecture = templateName;
         }
@@ -283,7 +283,7 @@ var PreambleUtils = class PreambleUtils {
             ConfigManager.savePreambles(config);
             return true;
         } catch (e) {
-            console.log(`PreambleUtils Error saving default template for "${context}": ${e.message}`);
+            console.log(`PreambleUtils Error saving default template: ${e.message}`);
             return false;
         }
     }

@@ -77,7 +77,7 @@ var ConfigManager = class ConfigManager {
         return this._loadJsonFile(CONFIG_PATHS.preambles, {
             preambles: [],
             templates: {},
-            default_template_for_notes: null
+            default_template_for_lecture: null
         });
     }
 

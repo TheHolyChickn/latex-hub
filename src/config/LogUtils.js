@@ -20,23 +20,26 @@ var LogUtils = class LogUtils {
      */
     static addWorkSession(sessionData) {
         if (!sessionData.context || !sessionData.workspace || !sessionData.start_time || !sessionData.end_time) {
-            log("Error: sessionData missing an entry.");
+            console.log("Error: sessionData missing an entry.");
             return;
         }
 
         const logs = ConfigManager.loadLogs();
 
-        if (!(sessionData.workspace in ConfigManager.loadConfig().current_courses) && !(sessionData.workspace in ConfigManager.loadConfig().current_projects)) {
+        const config = ConfigManager.loadConfig();
+        if (!config.current_courses.includes(sessionData.workspace) && !config.current_projects.includes(sessionData.workspace)) {
             console.log("Invalid or archived workspace passed, exiting.");
             return;
         }
 
-        let durationMs = GLib.DateTime.new_from_iso8601(sessionData.end_time) - GLib.DateTime.new_from_iso8601(sessionData.start_time);
+        const startTime = GLib.DateTime.new_from_iso8601(sessionData.start_time, null);
+        const endTime = GLib.DateTime.new_from_iso8601(sessionData.end_time, null);
+        let durationMs = endTime.difference(startTime) / 1000;
         if (durationMs < 0) {
             durationMs = 0;
-            console.log('Error: negative duration_ms');
+            console.log('Warning: negative duration_ms');
         }
-        logs.workspace_times[sessionData.workspace] += durationMs;
+        logs.workspace_times[sessionData.workspace] = (logs.workspace_times[sessionData.workspace] || 0) + durationMs;
 
         const newSession = {
             id: this._generateId(),
@@ -87,7 +90,7 @@ var LogUtils = class LogUtils {
 
     static getAllWorkspaceTimes() {
         const logs = ConfigManager.loadLogs();
-        return { ...logs.project_times };
+        return { ...logs.workspace_times };
     }
 };
 

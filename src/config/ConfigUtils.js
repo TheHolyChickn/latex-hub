@@ -54,12 +54,12 @@ var ConfigUtils = class ConfigUtils {
      */
     static archiveCourse(courseName) {
         const config = ConfigManager.loadConfig();
-        if (!(courseName in config.current_courses)) {
+        if (!config.current_courses.includes(courseName)) {
             console.log("Error: courseName not present in current_courses");
             return;
         }
         config.archived_courses.push(courseName);
-        config.current_courses.delete(courseName);
+        config.current_courses = config.current_courses.filter(s => s !== courseName);
         ConfigManager.saveConfig(config);
     }
 
@@ -69,12 +69,12 @@ var ConfigUtils = class ConfigUtils {
      */
     static archiveProject(projectName) {
         const config = ConfigManager.loadConfig();
-        if (!(projectName in config.current_projects)) {
+        if (!config.current_projects.includes(projectName)) {
             console.log("Error: projectName not present in current_projects");
             return;
         }
         config.archived_projects.push(projectName);
-        config.current_projects.delete(projectName);
+        config.current_projects = config.current_projects.filter(s => s !== projectName);
         ConfigManager.saveConfig(config);
     }
 
