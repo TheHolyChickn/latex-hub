@@ -3,24 +3,25 @@
 const { GLib, Gio } = imports.gi;
 const ByteArray = imports.byteArray;
 
-// Assuming GJS_PATH is set up by the runner
 const { Lectures } = imports.core.Lectures;
-const { Lecture, TEX_LECTURE_DATE_FORMAT, manualParseLectureDate } = imports.core.Lecture; // For creating expected Lecture instances
+const { Lecture, TEX_LECTURE_DATE_FORMAT } = imports.core.Lecture;
 const { ConfigUtils } = imports.config.ConfigUtils;
-// const { Course } = imports.core.Course; // For mock course
 
-// Fixed date strings from setup_test_env.js, ensure these are identical
 const LECTURE1_DATE_STR_FROM_SETUP = "Sun 18 May 2025 10:00";
 const LECTURE2_DATE_STR_FROM_SETUP = "Mon 19 May 2025 11:00";
 
+/**
+ * Retrieves the configured root directory path for test courses.
+ * @returns {string | null} The path string or null if not configured.
+ */
 function getTestCoursesPath() {
     return ConfigUtils.get('root_dir');
 }
 
 /**
- * Helper to read file content.
- * @param {Gio.File} file
- * @returns {string|null}
+ * Reads the content of a given file.
+ * @param {Gio.File} file - The Gio.File object to read.
+ * @returns {string | null} The file content as a string, or null if the file doesn't exist or reading fails.
  */
 function readFileContent(file) {
     if (!file.query_exists(null)) return null;
@@ -33,17 +34,18 @@ function readFileContent(file) {
 }
 
 /**
- * Helper to create a minimal master.tex file.
- * @param {Gio.File} masterFile
- * @param {string} title
- * @param {string} [extraHeaderContent='']
- * @param {string} [initialBodyContent='']
+ * Creates a minimal master.tex file for testing purposes.
+ * @param {Gio.File} masterFile - The Gio.File object representing where to create the master.tex file.
+ * @param {string} [title="Test Master"] - The title to use in the LaTeX document.
+ * @param {string} [extraHeaderContent=''] - Optional extra content to insert in the header comments.
+ * @param {string} [initialBodyContent=''] - Optional initial content to insert between lecture markers.
+ * @returns {boolean} True if the file was successfully created, false otherwise.
  */
 function createMinimalMasterTex(masterFile, title = "Test Master", extraHeaderContent = '', initialBodyContent = '') {
     const content = `\\documentclass{article}
 \\title{${title}}
 \\author{Test Author}
-% ${extraHeaderContent} % For testing specific header scenarios
+% ${extraHeaderContent}
 % start lectures
 ${initialBodyContent}
 % end lectures
@@ -53,47 +55,53 @@ ${initialBodyContent}
         masterFile.replace_contents(content, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
         return true;
     } catch (e) {
-        print(`ERROR creating minimal master.tex: ${e.message}`);
+        print(`ERROR creating minimal master.tex at ${masterFile.get_path()}: ${e.message}`);
         return false;
     }
 }
 
-
+/**
+ * Test suite for the Lectures class.
+ * @namespace lecturesTests
+ */
 var lecturesTests = {
+    /** @type {Object | null} Mock course object used for tests. */
     mockCourse: null,
+    /** @type {Gio.File | null} Gio.File object for the current test course path. */
     coursePath: null,
+    /** @type {Lectures | null} Instance of the Lectures class under test. */
     lecturesInstance: null,
 
+    /**
+     * Sets up the testing environment before each test case.
+     * Initializes mockCourse and lecturesInstance for TestCourse1.
+     */
     beforeEach: () => {
         const testCoursesPath = getTestCoursesPath();
-        assertTrue(!!testCoursesPath, "Setup: ConfigUtils should return a root_dir.");
-        if (!testCoursesPath) throw new Error("Test setup failed: no root_dir from ConfigUtils.");
+        assertTrue(!!testCoursesPath, "Setup: ConfigUtils must return a valid root_dir for tests.");
+        if (!testCoursesPath) throw new Error("Test setup failed: no root_dir provided by ConfigUtils.");
 
-        // Use TestCourse1 for most tests as it's set up with lectures
         this.coursePath = Gio.File.new_for_path(GLib.build_filenamev([testCoursesPath, 'TestCourse1']));
-        // Ensure the directory exists from setup_test_env.js
-        assertTrue(this.coursePath.query_exists(null), "TestCourse1 directory should exist.");
+        assertTrue(this.coursePath.query_exists(null), "Test setup: 'TestCourse1' directory must exist.");
 
-        this.mockCourse = { // A more complete mock for Course, similar to what Lectures expects
+        this.mockCourse = {
             path: this.coursePath,
             name: 'TestCourse1',
             info: {
                 short: 'TC1',
                 title: 'Test Course Alpha',
                 course_id: "TC 101",
-                preamble_path: "../global_preamble.tex" // Matches setup_test_env.js
+                preamble_path: "../global_preamble.tex"
             },
-            // No actual lectures property needed on mock for Lectures constructor
         };
         this.lecturesInstance = new Lectures(this.mockCourse);
     },
 
+    /**
+     * Cleans up or resets state after each test case.
+     * Re-initializes master.tex for TestCourse1 to its setup state.
+     */
     afterEach: () => {
-        // Cleanup: Re-run setup_test_env.js or selective cleanup of modified/created files
-        // For now, setup_test_env.js handles overall cleanup before a full test run.
-        // If tests modify master.tex or add lectures, they should ideally clean up or
-        // setup_test_env.js must be robust enough to reset.
-        // To be safe, let's re-initialize master.tex for TestCourse1 to its setup state
         const masterFile = this.coursePath.get_child('master.tex');
         const masterContent = `\\documentclass{article}
 \\title{Test Course Alpha}
@@ -104,19 +112,21 @@ var lecturesTests = {
 % start lectures
 \\input{lec_01.tex}
 % end lectures
-\\end{document}`; // This content might need to be exactly what setup_test_env makes
+\\end{document}`;
         try {
             masterFile.replace_contents(masterContent, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
-        } catch(e) { /* ignore cleanup error */ }
+        } catch(e) {
+            print(`Warning: Could not reset master.tex in afterEach: ${e.message}`);
+        }
     },
 
     'test constructor and _readFiles loads existing lectures': () => {
-        assertEqual(this.lecturesInstance.lecturesList.length, 2, "Should load 2 lectures from TestCourse1");
+        assertEqual(this.lecturesInstance.lecturesList.length, 2, "Should load 2 lectures from 'TestCourse1'.");
         if (this.lecturesInstance.lecturesList.length === 2) {
-            assertEqual(this.lecturesInstance.lecturesList[0].number, 1, "First lecture number should be 1");
-            assertEqual(this.lecturesInstance.lecturesList[0].title, "Introduction to Testing", "First lecture title");
-            assertEqual(this.lecturesInstance.lecturesList[1].number, 2, "Second lecture number should be 2");
-            assertEqual(this.lecturesInstance.lecturesList[1].title, "Advanced Testing", "Second lecture title");
+            assertEqual(this.lecturesInstance.lecturesList[0].number, 1, "First lecture's number should be 1.");
+            assertEqual(this.lecturesInstance.lecturesList[0].title, "Introduction to Testing", "First lecture's title check.");
+            assertEqual(this.lecturesInstance.lecturesList[1].number, 2, "Second lecture's number should be 2.");
+            assertEqual(this.lecturesInstance.lecturesList[1].title, "Advanced Testing", "Second lecture's title check.");
         }
     },
 
@@ -125,137 +135,131 @@ var lecturesTests = {
         const courseBPath = Gio.File.new_for_path(GLib.build_filenamev([testCoursesPath, 'TestCourse2']));
         const mockCourseB = { path: courseBPath, name: 'TestCourse2', info: { short: 'TC2' } };
         const lecturesB = new Lectures(mockCourseB);
-        assertEqual(lecturesB.lecturesList.length, 0, "TestCourse2 should have 0 lectures loaded");
+        assertEqual(lecturesB.lecturesList.length, 0, "'TestCourse2' (no lecture files) should load 0 lectures.");
     },
 
     'test getLastLecture and getLectureByNumber': () => {
         const lastLec = this.lecturesInstance.getLastLecture();
-        assertNotNull(lastLec, "Last lecture should exist");
-        if (lastLec) assertEqual(lastLec.number, 2, "Last lecture number should be 2");
+        assertNotNull(lastLec, "getLastLecture should return a lecture for 'TestCourse1'.");
+        if (lastLec) assertEqual(lastLec.number, 2, "Last lecture number for 'TestCourse1' should be 2.");
 
         const lec1 = this.lecturesInstance.getLectureByNumber(1);
-        assertNotNull(lec1, "Lecture 1 should be found");
-        if (lec1) assertEqual(lec1.title, "Introduction to Testing", "Lecture 1 title check");
+        assertNotNull(lec1, "getLectureByNumber(1) should find lecture 1.");
+        if (lec1) assertEqual(lec1.title, "Introduction to Testing", "Title of lecture 1 check.");
 
         const nonExistentLec = this.lecturesInstance.getLectureByNumber(99);
-        assertNull(nonExistentLec, "Lecture 99 should not be found");
+        assertNull(nonExistentLec, "getLectureByNumber(99) should return null for a non-existent lecture.");
     },
 
     'test parseLectureSpec': () => {
-        assertEqual(this.lecturesInstance.parseLectureSpec("1"), 1, "Parse spec '1'");
-        assertEqual(this.lecturesInstance.parseLectureSpec("last"), 2, "Parse spec 'last'");
-        assertEqual(this.lecturesInstance.parseLectureSpec("prev"), 1, "Parse spec 'prev'");
-        assertNull(this.lecturesInstance.parseLectureSpec("invalid"), "Parse spec 'invalid'");
+        assertEqual(this.lecturesInstance.parseLectureSpec("1"), 1, "parseLectureSpec('1') should return 1.");
+        assertEqual(this.lecturesInstance.parseLectureSpec("last"), 2, "parseLectureSpec('last') should return last lecture number (2).");
+        assertEqual(this.lecturesInstance.parseLectureSpec("prev"), 1, "parseLectureSpec('prev') should return previous lecture number (1).");
+        assertNull(this.lecturesInstance.parseLectureSpec("invalid_spec"), "parseLectureSpec('invalid_spec') should return null.");
 
-        // Test with empty course
         const courseBPath = Gio.File.new_for_path(GLib.build_filenamev([getTestCoursesPath(), 'TestCourse2']));
         const mockCourseB = { path: courseBPath, name: 'TestCourse2', info: { short: 'TC2' } };
         const lecturesB = new Lectures(mockCourseB);
-        assertNull(lecturesB.parseLectureSpec("last"), "Parse spec 'last' on empty list");
+        assertNull(lecturesB.parseLectureSpec("last"), "parseLectureSpec('last') on an empty lecture list should return null.");
     },
 
     'test parseRangeString': () => {
         let range = this.lecturesInstance.parseRangeString("1");
-        assertEqual(range.length, 1, "Range '1' length");
-        assertTrue(range.includes(1), "Range '1' contains 1");
+        assertEqual(range.length, 1, "parseRangeString('1') should result in a list of length 1.");
+        assertTrue(range.includes(1), "parseRangeString('1') result should include 1.");
 
         range = this.lecturesInstance.parseRangeString("1-2");
-        assertEqual(range.length, 2, "Range '1-2' length");
-        assertTrue(range.includes(1) && range.includes(2), "Range '1-2' content");
+        assertEqual(range.length, 2, "parseRangeString('1-2') should result in a list of length 2.");
+        assertTrue(range.includes(1) && range.includes(2), "parseRangeString('1-2') result should include 1 and 2.");
 
         range = this.lecturesInstance.parseRangeString("last");
-        assertEqual(range.length, 1, "Range 'last' length");
-        assertTrue(range.includes(2), "Range 'last' contains 2");
+        assertEqual(range.length, 1, "parseRangeString('last') should result in a list of length 1.");
+        assertTrue(range.includes(2), "parseRangeString('last') result should include the last lecture number (2).");
 
         range = this.lecturesInstance.parseRangeString("all");
-        assertEqual(range.length, 2, "Range 'all' length");
-        assertTrue(range.includes(1) && range.includes(2), "Range 'all' content");
+        assertEqual(range.length, 2, "parseRangeString('all') should result in a list of all lecture numbers.");
+        assertTrue(range.includes(1) && range.includes(2), "parseRangeString('all') result should include 1 and 2 for TestCourse1.");
 
-        range = this.lecturesInstance.parseRangeString("invalid-range");
-        assertEqual(range.length, 0, "Range 'invalid-range' length");
+        range = this.lecturesInstance.parseRangeString("invalid-range-spec");
+        assertEqual(range.length, 0, "parseRangeString with an invalid spec should result in an empty list.");
     },
 
     'test _getHeaderFooter with existing master file': () => {
-        // setup_test_env.js creates a master.tex for TestCourse1
         const masterFile = this.mockCourse.path.get_child('master.tex');
-        assertTrue(masterFile.query_exists(null), "master.tex for TestCourse1 should exist.");
+        assertTrue(masterFile.query_exists(null), "Test setup: master.tex for 'TestCourse1' must exist.");
 
         const hf = this.lecturesInstance._getHeaderFooter(masterFile);
-        assertNotNull(hf, "_getHeaderFooter should return an object for existing file");
-        assertTrue(hf.header.includes("\\documentclass{article}"), "Header content check");
-        assertTrue(hf.header.includes("% start lectures"), "Header should contain '% start lectures'");
-        assertTrue(hf.footer.includes("% end lectures"), "Footer should contain '% end lectures'");
-        assertTrue(hf.footer.includes("\\end{document}"), "Footer content check");
-        assertFalse(hf.header.includes("\\input{lec_01.tex}"), "Header should not contain lecture inputs from default master.tex");
+        assertNotNull(hf, "_getHeaderFooter should return an object for an existing master file.");
+        if (hf) {
+            assertTrue(hf.header.includes("\\documentclass{article}"), "Header content should include '\\documentclass{article}'.");
+            assertTrue(hf.header.includes("% start lectures"), "Header content should include the '% start lectures' marker.");
+            assertTrue(hf.footer.includes("% end lectures"), "Footer content should include the '% end lectures' marker.");
+            assertTrue(hf.footer.includes("\\end{document}"), "Footer content should include '\\end{document}'.");
+            assertFalse(hf.header.includes("\\input{lec_01.tex}"), "Default header from setup should not contain specific lecture inputs.");
+        }
     },
 
     'test _getHeaderFooter with non-existent master file': () => {
-        const coursePath = Gio.File.new_for_path(GLib.build_filenamev([getTestCoursesPath(), 'EmptyCourse']));
-        const mockEmptyCourse = { path: coursePath, name: 'EmptyCourse', info: { short: 'EC' } };
-        const lecturesEmpty = new Lectures(mockEmptyCourse); // EmptyCourse has no master.tex by setup
+        const emptyCoursePath = Gio.File.new_for_path(GLib.build_filenamev([getTestCoursesPath(), 'EmptyCourse']));
+        const mockEmptyCourse = { path: emptyCoursePath, name: 'EmptyCourse', info: { short: 'EC' } };
+        const lecturesEmpty = new Lectures(mockEmptyCourse);
 
-        const masterFile = coursePath.get_child('master.tex');
-        assertFalse(masterFile.query_exists(null), "master.tex for EmptyCourse should NOT exist.");
+        const masterFile = emptyCoursePath.get_child('master.tex');
+        assertFalse(masterFile.query_exists(null), "Test setup: master.tex for 'EmptyCourse' must not exist.");
 
         const hf = lecturesEmpty._getHeaderFooter(masterFile);
-        // Your Lectures.js _getHeaderFooter returns null if file doesn't exist
-        assertNull(hf, "_getHeaderFooter should return null for non-existent file");
+        assertNull(hf, "_getHeaderFooter should return null if the master file does not exist.");
     },
 
     'test updateLecturesInMaster': () => {
         const masterFile = this.lecturesInstance.masterFile;
-        // Ensure master file exists for this test (it should from setup)
         if(!masterFile.query_exists(null)) {
-            createMinimalMasterTex(masterFile); // Create a basic one if somehow missing
+            createMinimalMasterTex(masterFile);
         }
 
         this.lecturesInstance.updateLecturesInMaster([1, 2]);
         let content = readFileContent(masterFile);
-        assertNotNull(content, "master.tex content should be readable after update");
+        assertNotNull(content, "master.tex content should be readable after update.");
         if (content) {
-            assertTrue(content.includes("\\input{lec_01.tex}"), "master.tex should include lec_01.tex after update [1,2]");
-            assertTrue(content.includes("\\input{lec_02.tex}"), "master.tex should include lec_02.tex after update [1,2]");
+            assertTrue(content.includes("\\input{lec_01.tex}"), "master.tex should include lec_01.tex after update with [1,2].");
+            assertTrue(content.includes("\\input{lec_02.tex}"), "master.tex should include lec_02.tex after update with [1,2].");
         }
 
         this.lecturesInstance.updateLecturesInMaster([1]);
         content = readFileContent(masterFile);
-        assertNotNull(content, "master.tex content should be readable after update");
+        assertNotNull(content, "master.tex content should be readable after subsequent update.");
         if (content) {
-            assertTrue(content.includes("\\input{lec_01.tex}"), "master.tex should include lec_01.tex after update [1]");
-            assertFalse(content.includes("\\input{lec_02.tex}"), "master.tex should NOT include lec_02.tex after update [1]");
+            assertTrue(content.includes("\\input{lec_01.tex}"), "master.tex should include lec_01.tex after update with [1].");
+            assertFalse(content.includes("\\input{lec_02.tex}"), "master.tex should NOT include lec_02.tex after update with [1].");
         }
     },
 
     'test newLecture': () => {
-        const initialLength = this.lecturesInstance.lecturesList.length; // Should be 2
+        const initialLength = this.lecturesInstance.lecturesList.length;
         const newLecture = this.lecturesInstance.newLecture();
-        assertNotNull(newLecture, "newLecture() should return a Lecture object");
-        assertEqual(this.lecturesInstance.lecturesList.length, initialLength + 1, "Lecture list length should increment by 1");
+        assertNotNull(newLecture, "newLecture() should return a Lecture object.");
+        assertEqual(this.lecturesInstance.lecturesList.length, initialLength + 1, "Lecture list length should increment by 1 after creating a new lecture.");
 
         if (newLecture) {
-            assertEqual(newLecture.number, initialLength + 1, `New lecture number should be ${initialLength + 1}`);
-            assertTrue(newLecture.file.query_exists(null), `New lecture file ${newLecture.file.get_basename()} should exist`);
-            assertNotNull(newLecture.date, "New lecture should have a date");
+            assertEqual(newLecture.number, initialLength + 1, `New lecture number should be ${initialLength + 1}.`);
+            assertTrue(newLecture.file.query_exists(null), `New lecture file '${newLecture.file.get_basename()}' should exist.`);
+            assertNotNull(newLecture.date, "New lecture should have a non-null date.");
 
-            // Check content of new lecture file
             const newLecContent = readFileContent(newLecture.file);
-            assertNotNull(newLecContent, "New lecture file should have content");
+            assertNotNull(newLecContent, "New lecture file should have content.");
             if (newLecContent) {
-                assertTrue(newLecContent.includes(`\\lecture{${initialLength + 1}}`), "New lecture file content: number");
-                // Date string check is tricky due to "now", just check for title part
-                assertTrue(newLecContent.includes(`}{}`), "New lecture file content: empty title braces");
+                assertTrue(newLecContent.includes(`\\lecture{${initialLength + 1}}`), "New lecture file content should include the correct lecture number command.");
+                assertTrue(newLecContent.includes(`}{}`), "New lecture file content should include empty braces for the title by default.");
             }
 
-            // Check master file update
             const masterContent = readFileContent(this.lecturesInstance.masterFile);
-            assertNotNull(masterContent, "Master file content should be readable");
+            assertNotNull(masterContent, "Master file should be readable after new lecture creation.");
             if (masterContent) {
-                assertTrue(masterContent.includes(`\\input{${newLecture.file.get_basename()}}`), "Master file should include new lecture");
+                assertTrue(masterContent.includes(`\\input{${newLecture.file.get_basename()}}`), "Master file should be updated to include the new lecture.");
             }
 
-            // Clean up the created lecture file
             if (newLecture.file.query_exists(null)) {
-                try { newLecture.file.delete(null); } catch(e) {/*ignore*/}
+                try { newLecture.file.delete(null); } catch(e) { /* Suppress error during test cleanup */ }
             }
         }
     },
@@ -269,82 +273,71 @@ var lecturesTests = {
             info: { short: 'TC2', title: "Course B", preamble_path: "../global_preamble.tex" }
         };
         const lecturesB = new Lectures(mockCourseB);
-        assertEqual(lecturesB.lecturesList.length, 0, "Initially TestCourse2 has 0 lectures");
+        assertEqual(lecturesB.lecturesList.length, 0, "Initially, 'TestCourse2' (empty course) should have 0 lectures.");
 
-        // Ensure its master.tex exists (or is created minimally by newLecture if _getHeaderFooter handles it)
-        // Your _getHeaderFooter returns null if master.tex doesn't exist, which updateLecturesInMaster needs to handle.
-        // Let's create one for this test.
         const masterB = courseBPath.get_child('master.tex');
         if (!masterB.query_exists(null)) {
-            createMinimalMasterTex(masterB, "Course B Master");
+            assertTrue(createMinimalMasterTex(masterB, "Course B Master"), "Test setup: Minimal master.tex for Course B should be created if missing.");
         }
 
-
         const newLecture1 = lecturesB.newLecture();
-        assertNotNull(newLecture1, "newLecture() on empty course should return Lecture object");
-        assertEqual(lecturesB.lecturesList.length, 1, "Lecture list length should be 1 after first new lecture");
+        assertNotNull(newLecture1, "newLecture() on an empty course should return a Lecture object.");
+        assertEqual(lecturesB.lecturesList.length, 1, "Lecture list length should be 1 after the first new lecture in an empty course.");
         if (newLecture1) {
-            assertEqual(newLecture1.number, 1, "First new lecture number should be 1");
-            assertTrue(newLecture1.file.query_exists(null), "New lecture file should exist for empty course");
+            assertEqual(newLecture1.number, 1, "The first new lecture's number in an empty course should be 1.");
+            assertTrue(newLecture1.file.query_exists(null), "The new lecture file should exist after creation in an empty course.");
 
-            // Check master file update
             const masterContent = readFileContent(lecturesB.masterFile);
-            assertNotNull(masterContent, "Master file for CourseB should be readable");
+            assertNotNull(masterContent, "Master file for 'TestCourse2' should be readable.");
             if (masterContent) {
-                assertTrue(masterContent.includes(`\\input{${newLecture1.file.get_basename()}}`), "Master file for CourseB should include new lecture");
+                assertTrue(masterContent.includes(`\\input{${newLecture1.file.get_basename()}}`), "Master file for 'TestCourse2' should include the new lecture.");
             }
 
-            // Clean up
             if (newLecture1.file.query_exists(null)) {
-                try { newLecture1.file.delete(null); } catch(e) {/*ignore*/}
+                try { newLecture1.file.delete(null); } catch(e) { /* Suppress error during test cleanup */ }
             }
         }
     },
 
-    // Test compileMaster - very basic, just checks if it runs without error and returns a status
-    // This test requires 'latexmk' to be in PATH. It will create dummy .aux etc files.
     'test compileMaster (runs without error on existing master)': () => {
         const masterFile = this.lecturesInstance.masterFile;
-        // Ensure it's a minimally compilable master file from setup
-        assertTrue(masterFile.query_exists(null), "Master file should exist for compile test.");
+        assertTrue(masterFile.query_exists(null), "Test setup: Master file for 'TestCourse1' must exist for compile test.");
 
         let status = -1;
         try {
             status = this.lecturesInstance.compileMaster();
-            // For a simple, valid master.tex (like the one setup creates), latexmk should succeed (status 0)
-            // or have a specific status for no changes if run twice.
-            // For now, just check it's not -1 (our error indicator)
-            assertTrue(status !== -1, "compileMaster should return a status code (not internal -1 error).");
-            // A successful compilation is usually 0.
-            // print(`DEBUG: compileMaster status: ${status}`);
+            assertTrue(status !== -1, "compileMaster should return a status code (not the internal -1 error indicator).");
         } catch (e) {
-            assertTrue(false, `compileMaster threw an error: ${e.message}`);
+            assertTrue(false, `compileMaster threw an unexpected error: ${e.message}`);
         }
     },
 
     'test compileMaster on non-existent master file': () => {
-        const coursePath = Gio.File.new_for_path(GLib.build_filenamev([getTestCoursesPath(), 'EmptyCourse']));
-        const mockEmptyCourse = { path: coursePath, name: 'EmptyCourse', info: { short: 'EC' } };
+        const emptyCoursePath = Gio.File.new_for_path(GLib.build_filenamev([getTestCoursesPath(), 'EmptyCourse']));
+        const mockEmptyCourse = { path: emptyCoursePath, name: 'EmptyCourse', info: { short: 'EC' } };
         const lecturesEmpty = new Lectures(mockEmptyCourse);
 
-        const masterFile = lecturesEmpty.masterFile; // Points to EmptyCourse/master.tex
-        assertFalse(masterFile.query_exists(null), "Master file for EmptyCourse should not exist for this test.");
+        const masterFile = lecturesEmpty.masterFile;
+        assertFalse(masterFile.query_exists(null), "Test setup: Master file for 'EmptyCourse' should not exist for this test scenario.");
 
         const status = lecturesEmpty.compileMaster();
-        assertEqual(status, -1, "compileMaster should return -1 if master file does not exist (as per Lectures.js logic).");
+        assertEqual(status, -1, "compileMaster should return -1 if the master file does not exist.");
     },
 
     'test list-like properties (length, get, iterator)': () => {
-        assertEqual(this.lecturesInstance.length, 2, "Length property should be 2");
-        assertNotNull(this.lecturesInstance.get(0), "get(0) should return a lecture");
-        assertEqual(this.lecturesInstance.get(0).number, 1, "get(0).number should be 1");
+        assertEqual(this.lecturesInstance.length, 2, "'length' property should be 2 for 'TestCourse1'.");
+        assertNotNull(this.lecturesInstance.get(0), "get(0) should return the first lecture object.");
+        if(this.lecturesInstance.get(0)) {
+            assertEqual(this.lecturesInstance.get(0).number, 1, "The 'number' of lecture from get(0) should be 1.");
+        }
 
         let count = 0;
         for (const lec of this.lecturesInstance) {
-            assertNotNull(lec, "Iterated lecture should not be null");
+            assertNotNull(lec, "Each iterated lecture should not be null.");
+            assertTrue(lec instanceof Lecture, "Each item yielded by iterator should be an instance of Lecture.");
             count++;
         }
-        assertEqual(count, 2, "Iterator should yield 2 lectures");
+        assertEqual(count, 2, "Iterator should yield 2 lectures for 'TestCourse1'.");
     }
 };
 
