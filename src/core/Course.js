@@ -91,7 +91,7 @@ var Course = class Course {
             return false;
         }
         if (!this.path || !otherCourse.path) {
-            return false; // Should not happen if constructed correctly
+            return false;
         }
         return this.path.get_uri() === otherCourse.path.get_uri();
     }

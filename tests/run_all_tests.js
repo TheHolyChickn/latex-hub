@@ -8,19 +8,21 @@
 
 const { GLib, Gio } = imports.gi;
 
-// Assertion functions
 let testsRun = 0;
 let testsPassed = 0;
 let testsFailed = 0;
 let currentTestFile = '';
-let currentTestSuite = ''; // This will now be the key from the test suite object (e.g., 'test Lecture constructor')
-// let currentTestName = ''; // Not strictly needed with this structure
+let currentTestSuiteName = '';
 
+/**
+ * Logs the result of a single assertion or an error during a test case.
+ * @param {string} status - 'PASS', 'FAIL', or 'ERROR'.
+ * @param {string} testCaseName - The name of the test case (function name).
+ * @param {string} [details=''] - Additional details for FAIL or ERROR.
+ */
 function logTestResult(status, testCaseName, details = '') {
-    const testId = `${currentTestFile} -> ${testCaseName}`; // Changed currentTestSuite to currentTestFile for broader context
-    if (status === 'PASS') {
-        // print(`  \x1b[32m✓ ${testId}\x1b[0m`); // Verbose pass
-    } else if (status === 'FAIL') {
+    const testId = `${currentTestFile} -> ${testCaseName}`;
+    if (status === 'FAIL') {
         print(`\n\x1b[31m✗ FAIL: ${testId}\x1b[0m`);
         if (details) print(`     ${details}`);
     } else if (status === 'ERROR') {
@@ -88,13 +90,14 @@ globalThis.assertThrows = function(func, expectedErrorType, message) {
     testsRun++;
     let threw = false;
     let errorTypeMatch = true;
+    let actualError = null;
     try {
         func();
     } catch (e) {
         threw = true;
+        actualError = e;
         if (expectedErrorType && !(e instanceof expectedErrorType)) {
             errorTypeMatch = false;
-            logTestResult('FAIL', message, `Threw error, but type mismatch. Expected ${expectedErrorType ? expectedErrorType.name : 'any error'}, got ${e.constructor.name}. Error: ${e.message}`);
         }
     }
 
@@ -102,7 +105,8 @@ globalThis.assertThrows = function(func, expectedErrorType, message) {
         testsPassed++;
         logTestResult('PASS', message);
     } else if (threw && !errorTypeMatch) {
-        testsFailed++; // Already logged by errorTypeMatch check
+        testsFailed++;
+        logTestResult('FAIL', message, `Threw error, but type mismatch. Expected ${expectedErrorType ? expectedErrorType.name : 'any error'}, got ${actualError.constructor.name}. Error: ${actualError.message}`);
     } else {
         testsFailed++;
         logTestResult('FAIL', message, `Expected function to throw an error, but it did not.`);
@@ -110,34 +114,24 @@ globalThis.assertThrows = function(func, expectedErrorType, message) {
 };
 
 /**
- * Runs test functions from a test suite object.
- * @param {Object} testSuiteObject - An object where keys are test names and values are test functions.
- * @param {string} fileName - The name of the test file being run.
+ * Runs test functions from a test suite object (exported by a test file).
+ * Handles beforeAll, afterAll, beforeEach, and afterEach hooks if present.
+ * @param {Object} testSuiteObject - An object where keys are test names (or hook names)
+ * and values are the corresponding functions.
+ * @param {string} fileName - The name of the test file being run (e.g., "Lecture.test.js").
  */
-function runTestFunctions(testSuiteObject, fileName) { // Renamed from runTestSuites to avoid confusion
+function runTestFunctions(testSuiteObject, fileName) {
     print(`\n--- Running tests from: \x1b[1m${fileName}\x1b[0m ---`);
-    currentTestFile = fileName; // Set context for logging
+    currentTestFile = fileName;
 
-    // Debug what testSuiteObject contains
-    if (testSuiteObject && typeof testSuiteObject === 'object') {
-        const keys = Object.keys(testSuiteObject);
-        print(`DEBUG: Test functions in ${fileName}: [${keys.join(', ')}]`);
-        if (keys.length === 0) {
-            print(`DEBUG: The test suite object from ${fileName} is empty.`);
-            return;
-        }
-    } else {
-        print(`DEBUG: Test suite object from ${fileName} is not an object or is null. Type: ${typeof testSuiteObject}`);
+    if (!testSuiteObject || typeof testSuiteObject !== 'object' || Object.keys(testSuiteObject).length === 0) {
+        print(`No tests found or test suite object is invalid in ${fileName}.`);
         return;
     }
 
-    const beforeAll = testSuiteObject.beforeAll;
-    const afterAll = testSuiteObject.afterAll;
-    const beforeEach = testSuiteObject.beforeEach;
-    const afterEach = testSuiteObject.afterEach;
+    const { beforeAll, afterAll, beforeEach, afterEach, ...tests } = testSuiteObject;
 
     if (typeof beforeAll === 'function') {
-        print(`DEBUG: Executing beforeAll for ${fileName}`);
         try {
             beforeAll();
         } catch (e) {
@@ -147,41 +141,40 @@ function runTestFunctions(testSuiteObject, fileName) { // Renamed from runTestSu
         }
     }
 
-    for (const testName in testSuiteObject) { // Iterate over the actual test functions
-        if (testName === 'beforeAll' || testName === 'afterAll' ||
-            testName === 'beforeEach' || testName === 'afterEach') {
-            continue;
-        }
-
-        if (typeof testSuiteObject[testName] === 'function') {
-            currentTestSuite = testName; // More accurately, this is the current test case name
+    for (const testName in tests) {
+        if (typeof tests[testName] === 'function') {
+            currentTestSuiteName = testName;
             print(`  \x1b[1m⦿ Running test:\x1b[0m ${testName}`);
             try {
                 if (typeof beforeEach === 'function') beforeEach();
-                testSuiteObject[testName](); // Execute the test function
+                tests[testName]();
             } catch (e) {
                 testsFailed++;
                 logTestResult('ERROR', testName, `Unhandled exception: ${e.message}${e.stack ? ('\nStack:' + e.stack) : ''}`);
             } finally {
                 if (typeof afterEach === 'function') {
-                    try { afterEach(); } catch (e) {
-                        print(`\x1b[31mERROR in afterEach for ${testName} in ${fileName}: ${e.message}\x1b[0m`);
+                    try {
+                        afterEach();
+                    } catch (e_afterEach) {
+                        print(`\x1b[31mERROR in afterEach for ${testName} in ${fileName}: ${e_afterEach.message}\x1b[0m`);
                     }
                 }
             }
-        } else {
-            print(`DEBUG: Property "${testName}" in ${fileName} is NOT a function. Type: ${typeof testSuiteObject[testName]}`);
         }
     }
 
     if (typeof afterAll === 'function') {
-        print(`DEBUG: Executing afterAll for ${fileName}`);
-        try { afterAll(); } catch (e) {
+        try {
+            afterAll();
+        } catch (e) {
             print(`\x1b[31mERROR in afterAll for ${fileName}: ${e.message}\x1b[0m`);
         }
     }
 }
 
+/**
+ * Main function to discover and run all test suites.
+ */
 function main() {
     const startTime = GLib.get_monotonic_time();
     print("====== LaTeX Hub Test Run ======");
@@ -202,36 +195,27 @@ function main() {
     for (const testModuleInfo of testModules) {
         try {
             const importedModuleObject = testModuleInfo.importer();
-
-            // The object assigned to "var exports" in the test file is what we want.
-            // In GJS, if "var exports = ..." is used, the imported module object often
-            // has an "exports" property that points to this assigned object.
-            // Or, the imported module object *is* the exported object directly.
             let actualTestFunctionsObject = null;
 
             if (importedModuleObject && typeof importedModuleObject.exports === 'object' && importedModuleObject.exports !== null) {
-                print(`DEBUG: Using 'exports' property from ${testModuleInfo.name} as the test suite object.`);
                 actualTestFunctionsObject = importedModuleObject.exports;
             } else if (importedModuleObject && typeof importedModuleObject === 'object' && importedModuleObject !== null) {
-                // Fallback: if there's no 'exports' property, assume the imported module itself
-                // is the object containing test functions (e.g. if Lecture.test.js was only `exports.testName = ...`)
-                // This is also the case if `var exports = someObject` makes `someObject` the direct import.
-                print(`DEBUG: Using the directly imported module object from ${testModuleInfo.name} as the test suite object.`);
                 actualTestFunctionsObject = importedModuleObject;
             }
 
             if (actualTestFunctionsObject) {
                 runTestFunctions(actualTestFunctionsObject, testModuleInfo.name);
             } else {
-                print(`\x1b[33mWarning: Test module ${testModuleInfo.name} loaded, but no recognizable test suite object found (checked module.exports and module itself).\x1b[0m`);
-                if (importedModuleObject) {
-                    const keys = Object.keys(importedModuleObject);
-                    print(`DEBUG: Keys in directly imported module for ${testModuleInfo.name}: [${keys.join(', ')}]`);
-                }
+                print(`\x1b[33mWarning: Test module ${testModuleInfo.name} loaded, but no recognizable test suite object was found.\x1b[0m`);
             }
         } catch (e) {
-            print(`\x1b[31mFATAL ERROR loading/processing test module ${testModuleInfo.name}: ${e.message}\x1b[0m`);
-            if (e.stack) print(e.stack);
+            print(`\x1b[31mFATAL ERROR loading or processing test module ${testModuleInfo.name}: ${e.message}\x1b[0m`);
+            if (e.stack) {
+                const stackLines = e.stack.split('\n');
+                for(const line of stackLines) {
+                    print(`    ${line}`);
+                }
+            }
             testsFailed++;
         }
     }
@@ -252,11 +236,11 @@ function main() {
     print("-----------------------------------");
 
     if (testsFailed > 0) {
-        print("\n\x1b[1;31m complessive TEST RUN FAILED \x1b[0m\n");
+        print("\n\x1b[1;31mOverall TEST RUN FAILED\x1b[0m\n");
     } else if (testsRun === 0) {
-        print("\n\x1b[1;33m WARNING: NO TESTS WERE RUN (or no assertions made). \x1b[0m\n");
+        print("\n\x1b[1;33mWARNING: NO TESTS WERE RUN (or no assertions made).\x1b[0m\n");
     } else {
-        print("\n\x1b[1;32m complessive TEST RUN PASSED \x1b[0m\n");
+        print("\n\x1b[1;32mOverall TEST RUN PASSED\x1b[0m\n");
     }
 }
 

@@ -3,20 +3,22 @@
 const { GLib, Gio } = imports.gi;
 const ByteArray = imports.byteArray;
 
-// Assuming GJS_PATH is set up by the runner
 const { Courses, CURRENT_COURSE_SYMLINK_PATH, CURRENT_COURSE_WATCH_FILE_PATH } = imports.core.Courses;
 const { Course, INFO_FILE_NAME } = imports.core.Course;
 const { ConfigUtils } = imports.config.ConfigUtils;
 
-// Helper to get the path to the test courses root
+/**
+ * Helper function to get the path string to the root directory where test courses are stored.
+ * @returns {string | null} The path to the test courses root, or null if not configured.
+ */
 function getTestCoursesPath() {
     return ConfigUtils.get('root_dir');
 }
 
 /**
- * Helper to read file content.
- * @param {Gio.File} file
- * @returns {string|null}
+ * Helper function to read file content.
+ * @param {Gio.File} file - The Gio.File object representing the file to read.
+ * @returns {string | null} The file content as a string, or null if reading fails or file doesn't exist.
  */
 function readFileContent(file) {
     if (!file.query_exists(null)) return null;
@@ -28,7 +30,12 @@ function readFileContent(file) {
     }
 }
 
-// Helper to write file content for info.json during tests
+/**
+ * Helper function to write an info.json file for a test course.
+ * @param {Gio.File} courseDirFile - The Gio.File object for the course's directory.
+ * @param {Object} infoData - The JavaScript object to stringify and write as info.json.
+ * @returns {boolean} True if writing was successful, false otherwise.
+ */
 function writeInfoJson(courseDirFile, infoData) {
     const infoFile = courseDirFile.get_child(INFO_FILE_NAME);
     const content = JSON.stringify(infoData, null, 4);
@@ -41,22 +48,26 @@ function writeInfoJson(courseDirFile, infoData) {
     }
 }
 
-// Helper to delete info.json
+/**
+ * Helper function to delete the info.json file from a course directory, if it exists.
+ * @param {Gio.File} courseDirFile - The Gio.File object for the course's directory.
+ */
 function deleteInfoJson(courseDirFile) {
     const infoFile = courseDirFile.get_child(INFO_FILE_NAME);
     if (infoFile.query_exists(null)) {
         try {
             infoFile.delete(null);
-        } catch (e) { /* ignore cleanup error */ }
+        } catch (e) {
+            // Suppress error during cleanup
+        }
     }
 }
 
 /**
- * Recursively deletes a directory.
- * @param {Gio.File} dirFile - The directory to delete.
+ * Recursively deletes a directory and its contents.
+ * @param {Gio.File} dirFile - The Gio.File object representing the directory to delete.
  */
 function deleteDirectoryRecursive(dirFile) {
-    // print(`DEBUG: Attempting to delete ${dirFile.get_path()}`);
     if (!dirFile.query_exists(null)) {
         return;
     }
@@ -74,145 +85,159 @@ function deleteDirectoryRecursive(dirFile) {
         enumerator.close(null);
         dirFile.delete(null);
     } catch (e) {
-        print(`DEBUG: Warning: Issue during deletion of ${dirFile.get_path()}: ${e.message}. Manual cleanup might be needed.`);
+        print(`Warning: Issue during recursive deletion of ${dirFile.get_path()}: ${e.message}. Manual cleanup might be needed.`);
     }
 }
 
 /**
  * Helper to safely delete a file if it exists.
- * @param {Gio.File} file
+ * @param {Gio.File} file - The Gio.File object representing the file to delete.
  */
 function deleteFileIfExists(file) {
     if (file.query_exists(null)) {
         try {
             file.delete(null);
         } catch (e) {
-            // print(`Warning: Could not delete file for cleanup: ${file.get_path()}`);
+            // Suppress error during cleanup
         }
     }
 }
 
-
+/**
+ * Test suite for the Courses class.
+ * @namespace coursesTests
+ */
 var coursesTests = {
+    /** @type {string | null} Path string to the root of the test courses directory. */
     testCoursesRootPath: null,
+    /** @type {Gio.File | null} Gio.File object for the current course symlink. */
     symlinkFile: null,
+    /** @type {Gio.File | null} Gio.File object for the current course watch file. */
     watchFile: null,
 
+    /**
+     * Sets up shared resources before all tests in this suite run.
+     * Initializes paths and file objects for the symlink and watch file.
+     */
     beforeAll: () => {
         this.testCoursesRootPath = getTestCoursesPath();
         assertTrue(!!this.testCoursesRootPath, "Setup: ConfigUtils should return a root_dir for Courses tests.");
-        if (!this.testCoursesRootPath) throw new Error("Missing testCoursesRootPath in Courses.test.js beforeAll");
+        if (!this.testCoursesRootPath) {
+            throw new Error("FATAL: Missing testCoursesRootPath in Courses.test.js beforeAll. Cannot proceed with tests.");
+        }
 
         this.symlinkFile = Gio.File.new_for_path(CURRENT_COURSE_SYMLINK_PATH);
         this.watchFile = Gio.File.new_for_path(CURRENT_COURSE_WATCH_FILE_PATH);
     },
 
+    /**
+     * Cleans up the current course symlink and watch file before each test.
+     * This ensures a consistent state for tests involving these files.
+     */
     beforeEach: () => {
-        // Ensure a clean state for symlink and watch file before each test involving them.
-        // setup_test_env.js already does this once, but tests might modify them.
         deleteFileIfExists(this.symlinkFile);
         deleteFileIfExists(this.watchFile);
     },
 
+    /**
+     * Performs final cleanup after all tests in this suite have run.
+     * Removes the current course symlink and watch file.
+     */
     afterAll: () => {
-        // Final cleanup of symlink and watch file
         deleteFileIfExists(this.symlinkFile);
         deleteFileIfExists(this.watchFile);
-        // Note: Reverting config.json's root_dir is a manual step after all tests.
     },
 
     'test constructor and _readCourses loads and sorts courses': () => {
         const courses = new Courses();
-        // Expecting TestCourse1, TestCourse2, EmptyCourse. .HiddenCourse and NotACourseFile.txt ignored.
-        assertEqual(courses.coursesList.length, 3, "Should load 3 non-hidden course directories.");
+        assertEqual(courses.coursesList.length, 3, "Should load 3 non-hidden course directories (TestCourse1, TestCourse2, EmptyCourse).");
 
-        // Check sorting by name (EmptyCourse, TestCourse1, TestCourse2)
         if (courses.coursesList.length === 3) {
-            assertEqual(courses.coursesList[0].name, "EmptyCourse", "First course should be EmptyCourse (sorted).");
-            assertEqual(courses.coursesList[1].name, "TestCourse1", "Second course should be TestCourse1 (sorted).");
-            assertEqual(courses.coursesList[2].name, "TestCourse2", "Third course should be TestCourse2 (sorted).");
+            assertEqual(courses.coursesList[0].name, "EmptyCourse", "First course after sorting should be 'EmptyCourse'.");
+            assertEqual(courses.coursesList[1].name, "TestCourse1", "Second course after sorting should be 'TestCourse1'.");
+            assertEqual(courses.coursesList[2].name, "TestCourse2", "Third course after sorting should be 'TestCourse2'.");
         }
     },
 
     'test _readCourses handles empty root_dir': () => {
         const originalRootDir = ConfigUtils.get('root_dir');
-        const emptyTestDirFile = Gio.File.new_for_path(GLib.build_filenamev([this.testCoursesRootPath, 'temp_empty_root']));
+        const emptyTestDirFile = Gio.File.new_for_path(GLib.build_filenamev([this.testCoursesRootPath, 'temp_empty_test_root']));
         try {
             emptyTestDirFile.make_directory_with_parents(null);
-            ConfigUtils.set('root_dir', emptyTestDirFile.get_path()); // Temporarily change config
+            ConfigUtils.set('root_dir', emptyTestDirFile.get_path());
 
             const courses = new Courses();
-            assertEqual(courses.coursesList.length, 0, "Should load 0 courses from an empty root_dir.");
+            assertEqual(courses.coursesList.length, 0, "Should load 0 courses when root_dir is empty.");
 
         } finally {
-            ConfigUtils.set('root_dir', originalRootDir); // Restore original config
-            if (emptyTestDirFile.query_exists(null)) { // Cleanup
-                const enumerator = emptyTestDirFile.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-                let childInfo;
-                while((childInfo = enumerator.next_file(null)) !== null) {
-                    emptyTestDirFile.get_child(childInfo.get_name()).delete(null);
-                }
-                enumerator.close(null);
-                emptyTestDirFile.delete(null);
+            ConfigUtils.set('root_dir', originalRootDir);
+            if (emptyTestDirFile.query_exists(null)) {
+                deleteDirectoryRecursive(emptyTestDirFile);
             }
         }
     },
 
     'test current getter when no symlink exists': () => {
-        deleteFileIfExists(this.symlinkFile); // Ensure it's gone
+        deleteFileIfExists(this.symlinkFile);
         const courses = new Courses();
-        assertNull(courses.current, "courses.current should be null if symlink does not exist.");
+        assertNull(courses.current, "courses.current should be null if the symlink does not exist.");
     },
 
     'test current setter and getter': () => {
         const courses = new Courses();
         const courseToSet = courses.findByName("TestCourse1");
-        assertNotNull(courseToSet, "TestCourse1 should exist in the courses list.");
+        assertNotNull(courseToSet, "Test setup: 'TestCourse1' should exist in the courses list.");
         if (!courseToSet) return;
 
         courses.current = courseToSet;
 
-        assertTrue(this.symlinkFile.query_exists(null), "Symlink should be created after setting current course.");
-        assertTrue(this.symlinkFile.query_file_type(Gio.FileQueryInfoFlags.NONE, null) === Gio.FileType.SYMBOLIC_LINK, "File should be a symlink.");
+        assertTrue(GLib.file_test(CURRENT_COURSE_SYMLINK_PATH, GLib.FileTest.EXISTS), "Symlink file should exist after setting current course.");
+        assertTrue(GLib.file_test(CURRENT_COURSE_SYMLINK_PATH, GLib.FileTest.IS_SYMLINK), "File at symlink path should be a symlink (checked with GLib.file_test).");
 
         const resolvedByGetter = courses.current;
-        assertNotNull(resolvedByGetter, "courses.current getter should resolve the symlink.");
+        assertNotNull(resolvedByGetter, "courses.current getter should successfully resolve the symlink to a Course object.");
         if (resolvedByGetter) {
-            assertTrue(resolvedByGetter.equals(courseToSet), "Getter should return the course that was set.");
+            assertTrue(resolvedByGetter.equals(courseToSet), "The Course object resolved by the getter should be equal to the one that was set.");
         }
 
-        // Check watch file content
-        assertTrue(this.watchFile.query_exists(null), "Watch file should be created.");
+        assertTrue(this.watchFile.query_exists(null), "Watch file should be created after setting current course.");
         const watchContent = readFileContent(this.watchFile);
         assertNotNull(watchContent, "Watch file should have content.");
-        // TestCourse1 info.short is "TC1"
-        assertEqual(watchContent.trim(), courseToSet.info.short, "Watch file content should be the short name of the course.");
+        assertEqual(watchContent.trim(), courseToSet.info.short, "Watch file content should be the short name of the set course.");
     },
 
     'test current setter with null (removes symlink and watch file)': () => {
         const courses = new Courses();
         const courseToSet = courses.findByName("TestCourse1");
-        if (!courseToSet) {assertTrue(false, "TestCourse1 missing for setup"); return;}
-        courses.current = courseToSet; // Set it first
-        assertTrue(this.symlinkFile.query_exists(null), "Symlink should exist initially.");
-        assertTrue(this.watchFile.query_exists(null), "Watch file should exist initially.");
+        if (!courseToSet) {
+            assertTrue(false, "Test setup: 'TestCourse1' missing, cannot proceed with test.");
+            return;
+        }
+        courses.current = courseToSet;
 
-        courses.current = null; // Now set to null
+        assertTrue(GLib.file_test(CURRENT_COURSE_SYMLINK_PATH, GLib.FileTest.EXISTS), "Pre-check: Symlink should exist before setting current to null.");
+        assertTrue(this.watchFile.query_exists(null), "Pre-check: Watch file should exist before setting current to null.");
 
-        assertFalse(this.symlinkFile.query_exists(null), "Symlink should be removed after setting current course to null.");
-        // Your Courses.js current setter clears watch file content, doesn't delete file.
+        courses.current = null;
+
+        assertFalse(GLib.file_test(CURRENT_COURSE_SYMLINK_PATH, GLib.FileTest.EXISTS), "Symlink should be removed after setting current course to null.");
         const watchContent = readFileContent(this.watchFile);
-        assertNotNull(watchContent, "Watch file should still exist after setting current to null.");
-        assertEqual(watchContent, "", "Watch file should be empty after setting current course to null.");
+        assertNotNull(watchContent, "Watch file should still exist after setting current to null (content is cleared).");
+        assertEqual(watchContent, "", "Watch file content should be empty after setting current course to null.");
     },
 
     'test current getter with broken symlink': () => {
         deleteFileIfExists(this.symlinkFile);
-        const nonExistentTargetPath = GLib.build_filenamev([this.testCoursesRootPath, 'NonExistentCourse']);
-        this.symlinkFile.make_symbolic_link(nonExistentTargetPath, null); // Create a symlink to a non-existent target
+        const nonExistentTargetPath = GLib.build_filenamev([this.testCoursesRootPath, 'NonExistentCourseTarget']);
+        try {
+            GLib.symlink(nonExistentTargetPath, CURRENT_COURSE_SYMLINK_PATH);
+        } catch (e) {
+            assertTrue(false, `Test setup: Failed to create broken symlink for test: ${e.message}`);
+            return;
+        }
 
         const courses = new Courses();
-        assertNull(courses.current, "courses.current should be null if symlink is broken.");
+        assertNull(courses.current, "courses.current should be null if the symlink is broken (points to a non-existent target).");
     },
 
     'test findByName': () => {
@@ -220,53 +245,56 @@ var coursesTests = {
         const foundCourse = courses.findByName("TestCourse1");
         assertNotNull(foundCourse, "findByName should find 'TestCourse1'.");
         if (foundCourse) {
-            assertEqual(foundCourse.name, "TestCourse1", "Found course should have the correct name.");
+            assertEqual(foundCourse.name, "TestCourse1", "Found course should have the name 'TestCourse1'.");
         }
 
-        const notFoundCourse = courses.findByName("NoSuchCourse");
-        assertEqual(notFoundCourse, undefined, "findByName should return undefined for non-existent course.");
+        const notFoundCourse = courses.findByName("DefinitelyNoSuchCourse");
+        assertEqual(notFoundCourse, undefined, "findByName should return undefined for a non-existent course name.");
     },
 
     'test reloadCourses': () => {
         const courses = new Courses();
         const initialLength = courses.coursesList.length;
-        assertEqual(initialLength, 3, "Initial number of courses.");
+        assertEqual(initialLength, 3, "Pre-check: Initial number of courses should be 3.");
 
-        // Create a new temporary course directory
-        const newCourseDir = Gio.File.new_for_path(GLib.build_filenamev([this.testCoursesRootPath, 'NewTempCourse']));
-        const infoFile = newCourseDir.get_child(INFO_FILE_NAME);
+        const newCourseDirName = 'NewTempCourseForReload';
+        const newCourseDir = Gio.File.new_for_path(GLib.build_filenamev([this.testCoursesRootPath, newCourseDirName]));
+
         try {
             newCourseDir.make_directory_with_parents(null);
             writeInfoJson(newCourseDir, { title: "New Temp Course", short: "NTC" });
 
-            courses.reloadCourses(); // Reload
-            assertEqual(courses.coursesList.length, initialLength + 1, "Number of courses should increase after reload.");
-            assertNotNull(courses.findByName("NewTempCourse"), "Newly created course should be found after reload.");
+            courses.reloadCourses();
+            assertEqual(courses.coursesList.length, initialLength + 1, "Number of courses should increase by one after reload with a new course.");
+            assertNotNull(courses.findByName(newCourseDirName), `Newly created course '${newCourseDirName}' should be found after reload.`);
 
         } finally {
-            // Cleanup
-            if (newCourseDir.query_exists(null)) deleteDirectoryRecursive(newCourseDir);
-            courses.reloadCourses(); // Reload again to restore original list count for other tests
-            assertEqual(courses.coursesList.length, initialLength, "Number of courses should revert after cleanup and reload.");
+            if (newCourseDir.query_exists(null)) {
+                deleteDirectoryRecursive(newCourseDir);
+            }
+            courses.reloadCourses();
+            assertEqual(courses.coursesList.length, initialLength, "Number of courses should revert to initial count after cleanup and another reload.");
         }
     },
 
     'test list-like properties (length, get, iterator)': () => {
         const courses = new Courses();
-        assertEqual(courses.length, 3, "Length property should be 3.");
-        assertNotNull(courses.get(0), "get(0) should return a course.");
-        // Name depends on sort order: EmptyCourse, TestCourse1, TestCourse2
-        assertEqual(courses.get(0).name, "EmptyCourse", "get(0).name should be 'EmptyCourse'.");
+        assertEqual(courses.length, 3, "Courses object 'length' property should be 3.");
+        assertNotNull(courses.get(0), "courses.get(0) should return a Course object.");
+        assertEqual(courses.get(0).name, "EmptyCourse", "courses.get(0).name should be 'EmptyCourse' (due to sorting).");
 
         let count = 0;
-        let foundTestCourse1 = false;
+        let foundTestCourse1InIteration = false;
         for (const course of courses) {
             assertNotNull(course, "Iterated course should not be null.");
-            if (course.name === "TestCourse1") foundTestCourse1 = true;
+            assertTrue(course instanceof Course, "Each item yielded by iterator should be a Course instance.")
+            if (course.name === "TestCourse1") {
+                foundTestCourse1InIteration = true;
+            }
             count++;
         }
         assertEqual(count, 3, "Iterator should yield 3 courses.");
-        assertTrue(foundTestCourse1, "Iterator should include TestCourse1.");
+        assertTrue(foundTestCourse1InIteration, "Iterator should include 'TestCourse1'.");
     }
 };
 
