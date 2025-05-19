@@ -2,11 +2,7 @@
 
 const { GLib, Gio } = imports.gi;
 
-const { ConfigUtils } = imports.config.ConfigUtils;
 const { Course } = imports.core.Course;
-const { Courses } = imports.core.Courses;
-
-const courses = Courses();
 
 var Homework = class Homework {
     /**
@@ -31,7 +27,7 @@ var Homework = class Homework {
         this.course = course; // fuck this needs to be a course object
         /** @type {string} */
         this.path = GLib.build_filenamev([
-            this.course.path,
+            this.course.path.get_path(),
             'Homework',
             `${this.name}_${this.number}.tex`
         ]);
