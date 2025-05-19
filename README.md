@@ -44,7 +44,7 @@ What the app should do:
 
 ## Current Progress
 
-Currently, I have only developed the config backends, in `/src/config/*.js`. They work as follows:
+Currently, I have only developed the config backends in `/src/config/*.js`, and some of the core class files, `Course`, `Courses`, `Lecture`, and `Lectures`, in `/src/core/*.js` (cloned from Gilles Castel's scripts). They work as follows:
 - there are three config files, `config.json`, `logs.json`, and `preambles.json`. The first two are stored in the user's config dir, usually `CONFIG_DIR = ~/.config/LatexHub`, and the third is stored in the subdirectory `CONFIG_DIR/preambles`.
 - `config.json` is the main config file. It tracks
   - `config.github_user`: the user's github username (i should really change this to the github link to the uni notes repository)
@@ -72,18 +72,19 @@ Currently, I have only developed the config backends, in `/src/config/*.js`. The
 - preamble templates are stored in the map `preambles.templates`, and take the for
 ```json
 "template-name": [
-  a list of file_names from existing preamble snippet files, which combine to form the template
+  "a list of file_names from existing preamble snippet files, which combine to form the template"
 ]
 ```
 - `logs.json` is a file which logs the user's activity. It logs each working session in `logs.work_sessions`, and the overall working time in each project/course (blanket term: workspace) in `logs.workspace_times`. The latter is simply a list of numbers, which represent the overall time spent working. The former saves "sessions", which are of the following form:
 ```json
 {
-  "id": a unique id for each session,
-  "start_time": an iso formatted datetime representing session start,
-  "end_time": an iso formatted datetime representing session end,
-  "context": either "course" or "project",
-  "workspace": the specific course/project name (as would be found in config.current_projects/courses) that was worked on
+  "id": "a unique id for each session",
+  "start_time": "an iso formatted datetime representing session start",
+  "end_time": "an iso formatted datetime representing session end",
+  "context": "either \"course\" or \"project\"",
+  "workspace": "the specific course/project name (as would be found in config.current_projects/courses) that was worked on"
 }
 ```
+- Course, Courses, Lecture, and Lectures implement a lot of methods. For a full understanding of them, read the files themselves.
 
 I have also ported Gilles Castel's scripts, along with my modifcations, into [legacy-scripts](legacy-scripts).

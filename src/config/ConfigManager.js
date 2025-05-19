@@ -1,7 +1,3 @@
-/**
- * a script for managing the various config files
- */
-
 'use strict';
 
 const { GLib, Gio } = imports.gi;
