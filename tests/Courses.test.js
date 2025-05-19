@@ -230,7 +230,7 @@ var coursesTests = {
         deleteFileIfExists(this.symlinkFile);
         const nonExistentTargetPath = GLib.build_filenamev([this.testCoursesRootPath, 'NonExistentCourseTarget']);
         try {
-            GLib.symlink(nonExistentTargetPath, CURRENT_COURSE_SYMLINK_PATH);
+            this.symlinkFile.make_symbolic_link(nonExistentTargetPath, null);
         } catch (e) {
             assertTrue(false, `Test setup: Failed to create broken symlink for test: ${e.message}`);
             return;
