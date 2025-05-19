@@ -21,7 +21,7 @@ var Homework = class Homework {
         this.preamble = item.preamble;
         /** @type {boolean} */
         this.status = Boolean(item.status);
-        /** @type {int} */
+        /** @type {string} */
         this.number = number;
         /** @type {course} */
         this.course = course; // fuck this needs to be a course object
