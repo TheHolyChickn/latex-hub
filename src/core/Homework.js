@@ -54,10 +54,12 @@ var Homework = class Homework {
         let line1, line2;
         // TODO: report/homework preambles and titlepage package should be configurable in the config file, here are some placeholders
         if (this.preamble === "report") {
-            line1 = '\\input{../../../../report.tex}'
+            // line1 = '\\input{../../../../report.tex}'
+            line1 = "\\input{../../preambles/report.tex}";
             line2 = '\\makereport';
         } else {
-            line1 = "\\input{../../homework.tex}";
+            // line1 = "\\input{../../homework.tex}";
+            line1 = "\\input{../../preambles/homework.tex}";
             line2 = "\\makeproblem";
         }
 
@@ -87,7 +89,7 @@ var Homework = class Homework {
 
         try {
             file.replace_contents(
-                content,
+                lines,
                 null,
                 false,
                 Gio.FileCreateFlags.REPLACE_DESTINATION,

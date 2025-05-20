@@ -189,7 +189,9 @@ function main() {
         { name: 'Lecture.test.js', importer: () => imports['Lecture.test'] },
         { name: 'Lectures.test.js', importer: () => imports['Lectures.test'] },
         { name: 'Course.test.js', importer: () => imports['Course.test'] },
-        { name: 'Courses.test.js', importer: () => imports['Courses.test'] }
+        { name: 'Courses.test.js', importer: () => imports['Courses.test'] },
+        { name: 'Homework.test.js', importer: () => imports['Homework.test'] },
+        // { name: 'Homeworks.test.js', importer: () => imports['Homeworks.test'] },
     ];
 
     for (const testModuleInfo of testModules) {

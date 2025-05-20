@@ -12,14 +12,11 @@ var HOMEWORK_TRACKER = "homeworks.json";
 var Homeworks = class Homeworks {
     /**
      * Manages all homework assignments.
+     * @param {Courses} courses - the Courses() instance. Should be passed from GUI master if using GUI, or created on the spot if using CLI
      */
-    constructor() {
-        if (!classesRootDir || typeof classesRootDir !== 'string') {
-            throw new Error("Homeworks constructor requires a valid classesRootDir string.");
-        }
-
+    constructor(courses) {
         /** @type {Courses} */
-        this.courses = Courses();
+        this.courses = courses;
         /** @type {string} */
         this.homeworkFilePath = GLib.build_filenamev([ConfigUtils.get('root_dir'), HOMEWORK_TRACKER]);
         /** @type {Object.<string, Homework[]>} */
@@ -123,6 +120,7 @@ var Homeworks = class Homeworks {
             console.error("Cannot initialize homework file: Courses instance or coursesList is missing.");
         }
         const jsonString = JSON.stringify(initialData, null, 4);
+        const file = Gio.File.new_for_path(this.homeworkFilePath);
         file.replace_contents(jsonString, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
     }
 
