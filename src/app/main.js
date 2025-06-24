@@ -25,82 +25,162 @@ function getDayWithSuffix(date) {
 class LatexHubApp {
     constructor() {
         this.app = new Adw.Application({
-            application_id: 'com.github.theholychickn.latex-hub'
+            application_id: 'com.github.theholychickn.latex-hub',
+            flags: Gio.ApplicationFlags.FLAGS_NONE,
         });
         this.app.connect('activate', this._onActivate.bind(this));
+        this.window = null;
     }
 
     _onActivate() {
+        if (this.window) {
+            this.window.present();
+            return;
+        }
+
         this.window = new Adw.ApplicationWindow({
             application: this.app,
-            default_width: 600,
-            default_height: 400,
-            title: 'LaTeX Hub',
+            default_width: 800,
+            default_height: 600,
             css_classes: ['main-window'],
-            content: this._buildMainUI()
         });
 
+        // To apply a theme, just add the class name.
+        this.window.add_css_class('theme-boba-tea');
+
+        const mainBox = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+        });
+
+        const headerBar = new Adw.HeaderBar({
+            title_widget: new Adw.WindowTitle({ title: 'LaTeX Hub' }),
+        });
+        mainBox.append(headerBar);
+
+        // This is the main layout widget with a sidebar and content view
+        const splitView = new Adw.NavigationSplitView({
+            vexpand: true,
+            max_sidebar_width: 250,
+            min_sidebar_width: 200,
+        });
+        mainBox.append(splitView);
+
+        // The content area that will change based on sidebar selection
+        const contentStack = new Adw.ViewStack();
+
+        // The sidebar itself
+        const sidebar = this._buildSidebar(contentStack);
+        splitView.set_sidebar(new Adw.NavigationPage({
+            title: 'Menu',
+            child: sidebar,
+        }));
+        splitView.set_content(new Adw.NavigationPage({
+            title: 'Content',
+            child: contentStack,
+        }));
+
+        // Add placeholder pages to the content stack
+        this._addPlaceholderPage(contentStack, 'dashboard', 'Dashboard', 'emblem-default-symbolic');
+        this._addPlaceholderPage(contentStack, 'courses', 'Courses', 'notebook-symbolic');
+        this._addPlaceholderPage(contentStack, 'projects', 'Projects', 'folder-symbolic');
+        this._addPlaceholderPage(contentStack, 'settings', 'Settings', 'emblem-system-symbolic');
+
+        // Set the initial visible page
+        contentStack.set_visible_child_name('dashboard');
+
+        this.window.set_content(mainBox);
         this.window.connect('realize', () => this._loadCSS());
         this.window.present();
     }
 
-    _loadCSS() {
-        const cssProvider = new Gtk.CssProvider();
-        const cssPath = GLib.build_filenamev([
-            GLib.get_current_dir(),
-            'styles',
-            'styles.css'
-        ]);
+    _buildSidebar(contentStack) {
+        const listBox = new Gtk.ListBox({
+            selection_mode: Gtk.SelectionMode.SINGLE,
+            css_classes: ['navigation-sidebar'],
+        });
 
-        try {
-            cssProvider.load_from_path(cssPath);
-            Gtk.StyleContext.add_provider_for_display(
-                this.window.get_display(),
-                cssProvider,
-                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-            );
-        } catch (e) {
-            console.error('Failed to load CSS:', e.message);
-        }
+        // When a row is selected, change the visible page in the contentStack
+        listBox.connect('row-selected', (box, row) => {
+            if (row) {
+                contentStack.set_visible_child_name(row.get_name());
+            }
+        });
+
+        // Add rows to the sidebar
+        listBox.append(this._createSidebarRow('Dashboard', 'dashboard'));
+        listBox.append(this._createSidebarRow('Courses', 'courses'));
+        listBox.append(this._createSidebarRow('Projects', 'projects'));
+        listBox.append(this._createSidebarRow('Settings', 'settings'));
+
+        return listBox;
     }
 
-    _buildMainUI() {
-        const mainBox = new Gtk.Box({
+    _createSidebarRow(title, name) {
+        const row = new Gtk.ListBoxRow({
+            name: name,
+            selectable: true,
+        });
+        const label = new Gtk.Label({
+            label: title,
+            halign: Gtk.Align.START,
+            margin_start: 12,
+            margin_end: 12,
+            margin_top: 12,
+            margin_bottom: 12,
+        });
+        row.set_child(label);
+        return row;
+    }
+
+    _addPlaceholderPage(stack, name, title, iconName) {
+        const box = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
-            spacing: 10,
-            margin_top: 20,
-            margin_bottom: 20,
-            margin_start: 20,
-            margin_end: 20
-        });
-
-        const today = new GLib.DateTime().get_day_of_month();
-        const dayLabel = new Gtk.Label({
-            label: `Today is the ${getDayWithSuffix(today)}`,
             halign: Gtk.Align.CENTER,
-            css_classes: ['custom-label']
+            valign: Gtk.Align.CENTER,
+            spacing: 12,
         });
-        mainBox.append(dayLabel);
 
-        const closeButton = new Gtk.Button({
-            label: 'Close',
-            margin_top: 20,
-            css_classes: ['custom-button']
+        const icon = new Gtk.Image({
+            icon_name: iconName,
+            pixel_size: 64,
+            css_classes: ['dim-label'],
         });
-        closeButton.connect('clicked', () => this.window.close());
-        mainBox.append(closeButton);
+        box.append(icon);
 
-        return mainBox;
+        const label = new Gtk.Label({
+            label: `<span size='xx-large'>${title}</span>`,
+            use_markup: true,
+        });
+        box.append(label);
+
+        const subLabel = new Gtk.Label({
+            label: `This is the placeholder page for the ${title} view.`,
+            css_classes: ['dim-label'],
+        });
+        box.append(subLabel);
+
+        stack.add_titled(box, name, title);
     }
 
-    run(args) {
-        this.app.run(args);
+    _loadCSS() {
+        const provider = new Gtk.CssProvider();
+        const path = GLib.build_filenamev([GLib.get_current_dir(), 'src', 'styles', 'application.css']);
+        provider.load_from_path(path);
+
+        Gtk.StyleContext.add_provider_for_display(
+            this.window.get_display(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        );
+    }
+
+    run(argv) {
+        return this.app.run(argv);
     }
 }
 
-//const app = new LatexHubApp();
-//app.run(ARGV);
-
+const app = new LatexHubApp();
+app.run(ARGV);
 function testConfigSystem() {
     let config = ConfigManager.loadConfig();
     console.log('Initial Config:', JSON.stringify(config, null, 2));

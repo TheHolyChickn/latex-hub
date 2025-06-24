@@ -1,26 +1,78 @@
+/* Import Google Fonts for the themes */
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@400;700&family=Quicksand:wght@400;700&display=swap');
+
+/* Default Theme (Adwaita-like professional blue) */
+:root {
+    --bg-color: #f6f5f4;
+    --text-color: #2e3436;
+    --accent-color: #1c71d8;
+    --accent-fg-color: #ffffff;
+    --hover-color: #1a5fb4;
+    --active-color: #153c6e;
+    --font-family: sans-serif;
+}
+
+/* --- Theme Definitions --- */
+
+.theme-pastel-academia {
+    --bg-color: #fdf6e3;
+    --text-color: #657b83;
+    --accent-color: #b589d6;
+    --accent-fg-color: #ffffff;
+    --hover-color: #a074bf;
+    --active-color: #8b63a8;
+    --font-family: "Lato", sans-serif;
+}
+
+.theme-boba-tea {
+    --bg-color: #f5f0f0;
+    --text-color: #5c4d6b;
+    --accent-color: #a696ce;
+    --accent-fg-color: #ffffff;
+    --hover-color: #917fb9;
+    --active-color: #7b68a3;
+    --font-family: "Nunito", sans-serif;
+}
+
+.theme-autumn-fox {
+    --bg-color: #fbf9f6;
+    --text-color: #4f4242;
+    --accent-color: #e67e22;
+    --accent-fg-color: #ffffff;
+    --hover-color: #d35400;
+    --active-color: #a84300;
+    --font-family: "Quicksand", sans-serif;
+}
+
+
+/* --- Widget Styling using Variables --- */
+
 .main-window {
-    background-color: #f6f5f4;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-family);
 }
 
 .custom-label {
     font-weight: bold;
     font-size: 18px;
-    color: #1c71d8;
+    color: var(--accent-color);
     margin-bottom: 20px;
 }
 
 .custom-button {
-    background-color: #1c71d8;
-    color: white;
+    background-color: var(--accent-color);
+    color: var(--accent-fg-color);
     border-radius: 8px;
     padding: 12px 24px;
     transition: 0.3s;
+    font-weight: bold;
 }
 
 .custom-button:hover {
-    background-color: #1a5fb4;
+    background-color: var(--hover-color);
 }
 
 .custom-button:active {
-    background-color: #153c6e;
+    background-color: var(--active-color);
 }
