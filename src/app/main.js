@@ -2,7 +2,7 @@
 
 imports.gi.versions.Gtk = '4.0';
 imports.gi.versions.Gdk = '4.0';
-const { Gtk, Adw, GLib, Gdk } = imports.gi;
+const { Gtk, Adw, GLib, Gdk, Gio } = imports.gi;
 
 imports.searchPath.unshift(GLib.build_filenamev([
     GLib.get_current_dir(),
@@ -45,8 +45,11 @@ class LatexHubApp {
             css_classes: ['main-window'],
         });
 
+        const styleManager = Adw.StyleManager.get_default();
+        styleManager.set_color_scheme(Adw.ColorScheme.FORCE_DARK);
+
         // To apply a theme, just add the class name.
-        this.window.add_css_class('theme-boba-tea');
+        // this.window.add_css_class('root:dark');
 
         const mainBox = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
@@ -138,6 +141,7 @@ class LatexHubApp {
             halign: Gtk.Align.CENTER,
             valign: Gtk.Align.CENTER,
             spacing: 12,
+            css_classes: ['content-card'],
         });
 
         const icon = new Gtk.Image({
@@ -158,6 +162,18 @@ class LatexHubApp {
             css_classes: ['dim-label'],
         });
         box.append(subLabel);
+
+        if (name === 'dashboard') {
+            const testButton = new Gtk.Button({
+                label: 'Test Custom Button',
+                css_classes: ['custom-button'], // This class applies our theme!
+                margin_top: 20,
+            });
+            testButton.connect('clicked', () => {
+                console.log('Custom button clicked!');
+            });
+            box.append(testButton);
+        }
 
         stack.add_titled(box, name, title);
     }

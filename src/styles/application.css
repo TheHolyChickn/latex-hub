@@ -1,78 +1,113 @@
-/* Import Google Fonts for the themes */
-@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@400;700&family=Quicksand:wght@400;700&display=swap');
+/* --- Digital Dollhouse Theme --- */
 
-/* Default Theme (Adwaita-like professional blue) */
+/* Light Mode is the default */
 :root {
-    --bg-color: #f6f5f4;
-    --text-color: #2e3436;
-    --accent-color: #1c71d8;
-    --accent-fg-color: #ffffff;
-    --hover-color: #1a5fb4;
-    --active-color: #153c6e;
-    --font-family: sans-serif;
+    --font-heading: "Comfortaa", sans-serif;
+    --font-body: "Poppins", sans-serif;
+
+    --bg-color: #FEF9FA;
+    --text-color: #5D4C56;
+    --accent-color: #F472B6;
+    --accent-fg-color: #FFFFFF;
+    --secondary-accent-color: #A78BFA;
+    --surface-color: #FFFFFF;
+    --shadow-color: rgba(93, 76, 86, 0.1);
 }
 
-/* --- Theme Definitions --- */
-
-.theme-pastel-academia {
-    --bg-color: #fdf6e3;
-    --text-color: #657b83;
-    --accent-color: #b589d6;
-    --accent-fg-color: #ffffff;
-    --hover-color: #a074bf;
-    --active-color: #8b63a8;
-    --font-family: "Lato", sans-serif;
+/* Dark Mode Overrides */
+:root:dark {
+    --bg-color: #2B2126;
+    --text-color: #EAE3E6;
+    --accent-color: #F472B6;
+    --accent-fg-color: #FFFFFF;
+    --secondary-accent-color: #C4B5FD;
+    --surface-color: #382C33;
+    --shadow-color: rgba(0, 0, 0, 0.2);
 }
 
-.theme-boba-tea {
-    --bg-color: #f5f0f0;
-    --text-color: #5c4d6b;
-    --accent-color: #a696ce;
-    --accent-fg-color: #ffffff;
-    --hover-color: #917fb9;
-    --active-color: #7b68a3;
-    --font-family: "Nunito", sans-serif;
-}
-
-.theme-autumn-fox {
-    --bg-color: #fbf9f6;
-    --text-color: #4f4242;
-    --accent-color: #e67e22;
-    --accent-fg-color: #ffffff;
-    --hover-color: #d35400;
-    --active-color: #a84300;
-    --font-family: "Quicksand", sans-serif;
-}
-
-
-/* --- Widget Styling using Variables --- */
-
-.main-window {
+/* --- Base Styling --- */
+.main-window, window {
     background-color: var(--bg-color);
     color: var(--text-color);
-    font-family: var(--font-family);
+    font-family: var(--font-body);
 }
 
-.custom-label {
+/* --- Header Bar --- */
+headerbar {
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border-bottom: 1px solid var(--shadow-color);
+    box-shadow: 0 2px 4px var(--shadow-color);
+}
+headerbar .title {
+    font-family: var(--font-heading);
     font-weight: bold;
-    font-size: 18px;
     color: var(--accent-color);
-    margin-bottom: 20px;
+}
+headerbar button {
+    color: var(--text-color);
 }
 
-.custom-button {
+/* --- Sidebar --- */
+.navigation-sidebar {
+    background-color: transparent; /* Inherit from main window */
+    padding: 8px;
+    border-right: none;
+}
+.navigation-sidebar row {
+    border-radius: 8px;
+    margin-bottom: 4px;
+}
+.navigation-sidebar row:hover {
+    background-color: var(--shadow-color);
+}
+.navigation-sidebar row:selected {
     background-color: var(--accent-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.navigation-sidebar row:selected label {
     color: var(--accent-fg-color);
+    font-family: var(--font-heading);
+    font-weight: bold;
+}
+
+/* --- Content Area --- */
+.content-card {
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border-radius: 16px;
+    padding: 32px;
+    margin: 16px;
+    box-shadow: 0 4px 8px var(--shadow-color);
+}
+.content-card .title {
+    font-family: var(--font-heading);
+    font-size: xx-large;
+    font-weight: bold;
+}
+.content-card .dim-label {
+    opacity: 0.7;
+}
+
+/* --- Custom Widgets --- */
+.custom-button {
+    font-family: var(--font-heading);
+    font-weight: bold;
+    color: var(--accent-fg-color);
+    background-color: var(--accent-color);
+    border: none;
     border-radius: 8px;
     padding: 12px 24px;
-    transition: 0.3s;
-    font-weight: bold;
+    box-shadow: 0 2px 4px var(--shadow-color);
+    transition: all 0.2s ease-in-out;
 }
-
 .custom-button:hover {
-    background-color: var(--hover-color);
+    background-color: var(--accent-color);
+    box-shadow: 0 4px 8px var(--shadow-color);
+    transform: translateY(-2px);
 }
-
 .custom-button:active {
-    background-color: var(--active-color);
+    background-color: var(--accent-color);
+    box-shadow: 0 1px 2px var(--shadow-color);
+    transform: translateY(0);
 }
