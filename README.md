@@ -4,7 +4,7 @@ for integration into hotkey daemons (as paired with WMs) for quick access to rof
 
 What the app should do:
 
-- implements gilles castel's scripts in a CLI (I will send the actual scripts later, but familiarize yourself with their functionality here); these will be rewritten into js later
+- implements gilles castel's scripts in a CLI (the python versions can already be found in this repo, we need to rewrite them into js);
 
 - implements my addition to his scripts which adds management for homework assignments (again, as a cli)
 
@@ -87,4 +87,4 @@ Currently, I have only developed the config backends in `/src/config/*.js`, and 
 ```
 - Course, Courses, Lecture, and Lectures implement a lot of methods. For a full understanding of them, read the files themselves.
 
-I have also ported Gilles Castel's scripts, along with my modifcations, into [legacy-scripts](legacy-scripts).
+I have also ported Gilles Castel's scripts, along with my modifcations, into [legacy-scripts](legacy-scripts). Currently, I am working on implementing the first one, which is the countdown script. You can find my current progress in Countdown.js.
