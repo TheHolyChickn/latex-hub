@@ -191,7 +191,7 @@ class LatexHubApp {
     }
 
     run(argv) {
-        return this.app.run(argv);
+        return this.app.run(argv)
     }
 }
 
