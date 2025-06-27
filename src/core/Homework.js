@@ -3,6 +3,7 @@
 const { GLib, Gio } = imports.gi;
 
 const { Course } = imports.core.Course;
+const { ConfigManager } = imports.config.ConfigManager;
 
 var Homework = class Homework {
     /**
@@ -46,33 +47,32 @@ var Homework = class Homework {
         let courseID = "";
         let courseSection = "";
         let professor = "";
-
         courseID = this.course.info.course_id || "";
         courseSection = this.course.info.section || "";
         professor = this.course.info.professor || "";
 
-        let line1, line2;
-        // TODO: report/homework preambles and titlepage package should be configurable in the config file, here are some placeholders
+        let preambleFiles = [];
+        let titleCommand = '';
         if (this.preamble === "report") {
-            // line1 = '\\input{../../../../report.tex}'
-            line1 = "\\input{../../preambles/report.tex}";
-            line2 = '\\makereport';
+            preambleFiles = this.course.info.report_preambles || [];
+            titleCommand = '\\makereport';
         } else {
-            // line1 = "\\input{../../homework.tex}";
-            line1 = "\\input{../../preambles/homework.tex}";
-            line2 = "\\makeproblem";
+            preambleFiles = this.course.info.homework_preambles || [];
+            titleCommand = "\\makeproblem";
         }
+
+        const preambleInputs = preambleFiles.map(p => `\\input{${GLib.build_filenamev([ConfigManager.getConfigDir(), 'preambles', p + '.tex'])}}`).join('\n');
 
         const lines = [
             '\\documentclass[11pt, letterpaper]{article}',
-            line1,
+            preambleInputs,
             "\\usepackage{titlepage}",
             `\\title{${this.name}}`,
             `\\courseID{${courseID}}`,
             `\\courseSection{${courseSection}}`,
             `\\professor{${professor}}`,
             '\\begin{document}',
-            line2,
+            titleCommand,
             '\\end{document}'
         ].join('\n');
 

@@ -4,35 +4,38 @@ imports.gi.versions.GLib = '2.0';
 imports.gi.versions.Gio = '2.0';
 const { GLib, Gio } = imports.gi;
 
-// Set up the search path to include the 'src' directory
 const projectRoot = GLib.get_current_dir();
 imports.searchPath.unshift(projectRoot);
 imports.searchPath.unshift(GLib.build_filenamev([projectRoot, 'src']));
 
 const { Courses } = imports.core.Courses;
 const { Homeworks } = imports.core.Homeworks;
+const { PreambleUtils } = imports.config.PreambleUtils;
+const { ConfigManager } = imports.config.ConfigManager;
 
 /**
  * Generates the content for a new master.tex file based on course info.
  * @param {Course} course - The course object.
+ * @param preambles - the list of preamble snippets to use.
  * @returns {string} The LaTeX content for the master file.
  */
-function generateMasterTexContent(course) {
+function generateMasterTexContent(course, preambles) {
     const courseInfo = course.info || {};
     const title = courseInfo.title || course.name;
     const courseId = courseInfo.course_id || '';
     const college = courseInfo.college || '';
     const department = courseInfo.department || '';
 
+    const preambleInputs = preambles.map(p => `\\input{${GLib.build_filenamev([ConfigManager.getConfigDir(), 'preambles', p + '.tex'])}}`).join('\n');
+
     const lines = [
         '\\documentclass[11pt, letterpaper]{report}',
-        '\\input{../preambles/global_preamble.tex}', // TODO: fix this shit
+        preambleInputs,
         '\\usepackage{titlepage}',
         `\\title{${title}}`,
         `\\college{${college}}`,
         `\\department{${department}}`,
         `\\courseID{${courseId}}`,
-        `\\professor{${professor}}`,
         '\\begin{document}',
         '    \\maketitle',
         '    \\tableofcontents',
@@ -81,7 +84,8 @@ async function initializeAllCourses() {
             const courseDir = course.path;
 
             // 2a. Create master.tex
-            const masterTexContent = generateMasterTexContent(course);
+            const selectedPreambles = await selectPreamblesInteractively();
+            const masterTexContent = generateMasterTexContent(course, selectedPreambles);
             const masterFile = courseDir.get_child('master.tex');
             masterFile.replace_contents(masterTexContent, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
             console.log(`Created/updated master.tex for ${course.name}.`);
@@ -111,6 +115,48 @@ async function initializeAllCourses() {
     }
 
     console.log("\nAll courses have been initialized.");
+}
+
+async function selectPreamblesInteractively() {
+    const allPreambles = PreambleUtils.getAllPreambleSnippets();
+    const allTemplates = PreambleUtils.getAllTemplates();
+
+    console.log("\n--- Availale Preambles ---");
+    allPreambles.forEach(p => {
+        console.log(`- ${p.file_name}: ${p.description}`)
+    })
+
+    console.log("\n--- Available Templates ---");
+    for (const templateName in allTemplates) {
+        console.log(`- ${templateName}: [${allTemplates[templateName].join(', ')}]`);
+    }
+
+    const userInput = await new Promise(resolve => {
+        const cancellable = new Gio.Cancellable();
+        const stream = new Gio.DataInputStream({
+            base_stream: new Gio.UnixInputStream({ fd: 0 })
+        });
+        console.log("\nEnter a comma-separated list of preambles and/or templates to include:");
+        stream.read_line_async(0, cancellable, (steam, res) => {
+            const line = stream.read_line_finish_utf8(res)[0];
+            resolve(line);
+        });
+    });
+
+    const selectedItems = userInput.split(',').map(item => item.trim());
+    const selectedPreambles = new Set();
+
+    selectedItems.forEach(item => {
+        if (allTemplates[item]) {
+            allTemplates[item].forEach(p => selectedPreambles.add(p));
+        } else if (allPreambles.some(p => p.file_name === item)) {
+            selectedPreambles.add(item);
+        } else {
+            console.log(`Warning: Preamble or template "${item}" not found.`);
+        }
+    });
+
+    return Array.from(selectedPreambles);
 }
 
 var exports = { initializeAllCourses };

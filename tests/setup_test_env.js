@@ -47,8 +47,9 @@ const TEST_COURSES_STRUCTURE = {
             course_id: "TC 101",
             department: "Testing Dept",
             college: "School of Tests",
-            professor: "Prof. Tester"
-            // preamble_path removed as per user request
+            professor: "Prof. Tester",
+            homework_preambles: ["ams", "macros"],
+            report_preambles: ["ams", "macros", "fullpage"],
         },
         "master.tex": `\\documentclass{article}
 \\title{Test Course Alpha}
@@ -67,8 +68,9 @@ const TEST_COURSES_STRUCTURE = {
         "info.json": {
             title: "Test Course Beta (No Lectures)",
             short: "TC2",
-            course_id: "TC 102"
-            // preamble_path removed
+            course_id: "TC 102",
+            homework_preambles: [],
+            report_preambles: []
         },
         "master.tex": `\\documentclass{report}
 \\title{Test Course Beta}

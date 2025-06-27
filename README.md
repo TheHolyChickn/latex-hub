@@ -4,11 +4,11 @@ for integration into hotkey daemons (as paired with WMs) for quick access to rof
 
 What the app should do:
 
-- implements gilles castel's scripts in a CLI (the python versions can already be found in this repo, we need to rewrite them into js);
+- implements gilles castel's scripts in a CLI (the python versions can already be found in this repo under Legacy Scripts, most are also already rewritten in js);
 
 - implements my addition to his scripts which adds management for homework assignments (again, as a cli)
 
-- has a config file which manages the ROOT directory for classes, and also a PROJECTS directory for projects, and also a github link for the github these should be linked to (optional)
+- has a config file which manages the ROOT directory for classes, and also a PROJECTS directory for projects, and also a github link for the github these should be linked to (the github should be optional)
 
 - has a "new semester" button which takes the user through a series of prompts to set up a new directory for a new semester
 
@@ -26,7 +26,7 @@ What the app should do:
 
     - config: opens the config menu for editing
 
-- grades are implemented as follows: when a semester starts, part of the config file for that class implements a few classes of grades (user inputted), along with their weightings. The user then inputs assignments with point values in each specified class. Users should be able to specify "drop lowest grade" on any class of grades
+- grades are implemented as follows: when a semester starts, part of the config file for that class implements a few types of assignments (user inputted), along with their weightings. The user then inputs assignments with point values in each specified class. Users should be able to specify "drop lowest grade" on any class of grades (this seems complex, lets not implement it for now)
 
 - the current active course should be displayed
 
@@ -44,7 +44,7 @@ What the app should do:
 
 ## Current Progress
 
-Currently, I have only developed the config backends in `/src/config/*.js`, and some of the core class files, `Course`, `Courses`, `Lecture`, and `Lectures`, in `/src/core/*.js` (cloned from Gilles Castel's scripts). They work as follows:
+Currently, I have developed the config backends in `/src/config/*.js`, and most of the core class files, `Course`, `Courses`, `Lecture`, `Lectures`, `Homework`, `Homeworks`, `Countdown`, `InitAllCourses`, and `CompileAllMasters` in `/src/core/*.js` (most cloned from Gilles Castel's scripts). They work as follows:
 - there are three config files, `config.json`, `logs.json`, and `preambles.json`. The first two are stored in the user's config dir, usually `CONFIG_DIR = ~/.config/LatexHub`, and the third is stored in the subdirectory `CONFIG_DIR/preambles`.
 - `config.json` is the main config file. It tracks
   - `config.github_user`: the user's github username (i should really change this to the github link to the uni notes repository)
@@ -69,7 +69,7 @@ Currently, I have only developed the config backends in `/src/config/*.js`, and 
   ]
 }
 ```
-- preamble templates are stored in the map `preambles.templates`, and take the for
+- preamble templates are stored in the map `preambles.templates`, and take the form
 ```json
 "template-name": [
   "a list of file_names from existing preamble snippet files, which combine to form the template"
@@ -85,6 +85,9 @@ Currently, I have only developed the config backends in `/src/config/*.js`, and 
   "workspace": "the specific course/project name (as would be found in config.current_projects/courses) that was worked on"
 }
 ```
-- Course, Courses, Lecture, and Lectures implement a lot of methods. For a full understanding of them, read the files themselves.
+- Course, Courses, Lecture, Lectures, Homework, Homeworks, and Countdown implement a lot of methods. For a full understanding of them, read the files themselves. CompileAllMasters and InitAllCourses are very simple and self explanatory. Read them for an understanding.
+- A basic gui has been implemented. This is just a placeholder, and I am not currently working on it. Disregard it unless otherwise instructed.
 
-I have also ported Gilles Castel's scripts, along with my modifcations, into [legacy-scripts](legacy-scripts). Currently, I am working on implementing the first one, which is the countdown script. You can find my current progress in Countdown.js.
+Currently, I need to make some modifications to some of the structure before I can deploy the current version of the project for a full test run. The biggest issue is that when the LaTeX template code is pasted for homeworks and lecture notes (master files for courses), the preamble file has to be hardcoded. This kind of defeats the point of modularity of preambles. here are my ideas:
+- for lecture notes, the preamble should be set on creation. This means InitAllCourses needs to query the user for what preambles to include. In the future, this will be managed via GUI and the user will be able to select the files, but for now we're not going to work in a gui, we are working in a terminal, simply as proof of concept. The program should send a list of all available preamble file names, together with their description. The user should send a list of preamble file names to be used. The program is allowed to require specific formatting to make it easier to parse, since this is only proof of concept and not being pushed to production. The program should also print a list of templates together with each list of preambles they include, and if the user includes a template in their list the program should input all preambles in the template
+- for homeworks, the info.json for each course should save a list of preamble file_names, and that list should become the preamble files for homeworks.

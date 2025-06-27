@@ -259,7 +259,9 @@ var PreambleUtils = class PreambleUtils {
         const allSnippetsMetadata = this.getAllPreambleSnippets();
         const orderedFileNames = this._resolveOrderForInputs(initialFileNames, allSnippetsMetadata);
 
-        return orderedFileNames.map(fileName => `\\input{${fileName}.tex}`).join("\n");
+        return orderedFileNames.map(fileName =>
+            `\\input{${GLib.build_filenamev([getPreambleContentDir(), fileName + '.tex'])}}`
+        ).join("\n");
     }
 
     /**

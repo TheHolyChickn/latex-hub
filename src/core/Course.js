@@ -38,7 +38,9 @@ var Course = class Course {
             department: "",
             college: "",
             professor: "",
-            section: ""
+            section: "",
+            homework_preambles: [],
+            report_preambles: []
         };
 
         if (infoFile.query_exists(null)) {

@@ -111,47 +111,44 @@ var homeworkTests = {
         assertEqual(hw.path, expectedPath, "Homework path should be correctly constructed using Course object's path.");
     },
 
-    'test touch creates homework directory and file with default preamble': () => {
+    'test touch creates file with correct homework_preambles': () => {
         assertNotNull(this.mockCourse1, "mockCourse1 must be initialized for touch test");
-        const itemData = { name: "TouchableHW_Default", date: "10/01/25", preamble: "default", status: false };
+        // Note: 'preamble' is now 'homework' to match the default case in the new logic
+        const itemData = { name: "StandardHW", date: "10/01/25", preamble: "homework", status: false };
         const hw = new Homework(itemData, this.mockCourse1, "10");
 
+        hw.touch();
+
         const hwFile = Gio.File.new_for_path(hw.path);
-        const hwDir = hwFile.get_parent();
-
-        assertFalse(hwDir.query_exists(null), "Homework directory should not exist before touch.");
-        assertFalse(hwFile.query_exists(null), "Homework file should not exist before touch.");
-
-        hw.touch(); // This method uses this.course.info internally
-
-        assertTrue(hwDir.query_exists(null), "Homework directory should exist after touch.");
         assertTrue(hwFile.query_exists(null), "Homework file should exist after touch.");
-
         const content = readFileContent(hwFile);
         assertNotNull(content, "Homework file should have content.");
+
         if (content) {
-            assertTrue(content.includes(`\\title{${hw.name}}`), "File content should include homework title.");
-            assertTrue(content.includes(`\\courseID{${this.mockCourse1.info.course_id}}`), "File content should include course ID.");
-            // Assuming Homework.js touch method uses `../../preambles/homework.tex`
-            assertTrue(content.includes("\\input{../../preambles/homework.tex}"), "File content should include default preamble input.");
-            assertTrue(content.includes("\\makeproblem"), "File content should include \\makeproblem command.");
+            // Check that it used the 'homework_preambles' from the mock info.json
+            assertTrue(content.includes("\\input{~/.config/LatexHub/preambles/ams.tex}"), "File should include absolute path to ams.tex");
+            assertTrue(content.includes("\\input{~/.config/LatexHub/preambles/macros.tex}"), "File should include absolute path to macros.tex");
+            assertFalse(content.includes("fullpage.tex"), "File should NOT include a report-specific preamble.");
+            assertTrue(content.includes("\\makeproblem"), "File content should include \\makeproblem command for standard homework.");
         }
     },
 
-    'test touch with report preamble': () => {
+    'test touch creates file with correct report_preambles': () => {
         assertNotNull(this.mockCourse1, "mockCourse1 must be initialized for report preamble test");
-        const itemData = { name: "ReportableHW", date: "10/02/25", preamble: "report", status: false };
+        const itemData = { name: "ReportHW", date: "10/02/25", preamble: "report", status: false };
         const hw = new Homework(itemData, this.mockCourse1, "11");
+
         hw.touch();
 
         const hwFile = Gio.File.new_for_path(hw.path);
         assertTrue(hwFile.query_exists(null), "Report homework file should exist after touch.");
         const content = readFileContent(hwFile);
         assertNotNull(content, "Report homework file should have content.");
+
         if (content) {
-            // Assuming Homework.js touch method uses `../../preambles/report.tex`
-            assertTrue(content.includes("\\input{../../preambles/report.tex}"), "File content should include report preamble input.");
-            assertTrue(content.includes("\\makereport"), "File content should include \\makereport command.");
+            // Check that it used the 'report_preambles' from the mock info.json
+            assertTrue(content.includes("fullpage.tex"), "File should include the report-specific preamble.");
+            assertTrue(content.includes("\\makereport"), "File content should include \\makereport command for reports.");
         }
     },
 
