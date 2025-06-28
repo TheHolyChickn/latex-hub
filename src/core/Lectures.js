@@ -111,6 +111,14 @@ var Lectures = class Lectures {
             return allNumbers;
         }
 
+        if (rangeArg === 'prev') {
+            return allNumbers.slice(0, -1);
+        }
+
+        if (rangeArg === 'prev-last') {
+            return allNumbers.slice(-2);
+        }
+
         if (rangeArg.includes('-')) {
             const parts = rangeArg.split('-');
             const startSpec = this.parseLectureSpec(parts[0]);
@@ -238,7 +246,7 @@ var Lectures = class Lectures {
             console.error(`Master file ${this.masterFile.get_path()} does not exist. Cannot compile.`);
             return -1;
         }
-        const command = ['latexmk', '-f', '-interaction=nonstopmode', this.masterFile.get_basename()];
+        const command = ['latexmk', '-pdf', '-f', '-interaction=nonstopmode', this.masterFile.get_basename()];
         const workingDir = this.root.get_path();
         try {
             const [success, stdout, stderr, wait_status] = GLib.spawn_sync(

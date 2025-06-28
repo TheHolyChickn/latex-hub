@@ -21,7 +21,7 @@ function manualParseLectureDate(dateString) {
         console.warn(`ManualParse: Incorrect number of parts for date string "${dateString}"`);
         return null;
     }
-    const monthMap = {'Jan':0,'Feb':1,'Mar':2,'Apr':3,'May':4,'Jun':5,'Jul':6,'Aug':7,'Sep':8,'Oct':9,'Nov':10,'Dec':11};
+    const monthMap = {'Jan':1,'Feb':2,'Mar':3,'Apr':4,'May':5,'Jun':6,'Jul':7,'Aug':8,'Sep':9,'Oct':10,'Nov':11,'Dec':12};
     const year = parseInt(parts[3], 10);
     const month_0_indexed = monthMap[parts[2]];
     const day = parseInt(parts[1], 10);

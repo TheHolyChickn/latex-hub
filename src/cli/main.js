@@ -3,20 +3,35 @@
 'use strict';
 
 imports.gi.versions.GLib = '2.0';
+imports.gi.versions.Gio = '2.0';
+const { GLib, Gio } = imports.gi;
+const System = imports.system;
 
-const { GLib } = imports.gi;
+function getSelfPath() {
+    const stack = new Error().stack;
+    const stackLine = stack.split('\n')[1];
+    if (!stackLine) return null;
+    const match = stackLine.match(/@(.+?):\d+/);
+    return (match && match[1]) ? match[1] : null;
+}
 
-const scriptPath = GLib.file_new_for_path(ARGV[0]).get_path();
-const scriptDir = GLib.path_get_dirname(scriptPath);
+const selfPath = getSelfPath();
+if (!selfPath) {
+    console.error("Critical: Could not determine the script's own path. Exiting.");
+    System.exit(1);
+}
+
+const scriptDir = GLib.path_get_dirname(selfPath);
 const projectRoot = GLib.build_filenamev([scriptDir, '../../']);
 imports.searchPath.unshift(GLib.build_filenamev([projectRoot, 'src']));
 
-const { RofiManager } = imports.core.RofiManager;
+// Corrected import path
+const RofiManager = imports.core.RofiManager;
 const { Courses } = imports.core.Courses;
 
-/**
- * Opens the master.pdf for the current course in Zathura.
- */
+// ... (The rest of the file: openPdf, openDir, printHelp, main switch statement)
+// ... (No changes needed in the logic of these functions)
+
 function openPdf() {
     const courses = new Courses();
     const currentCourse = courses.current;
@@ -41,9 +56,6 @@ function openPdf() {
     }
 }
 
-/**
- * Opens the current course directory in the Dolphin file manager.
- */
 function openDir() {
     const courses = new Courses();
     const currentCourse = courses.current;
@@ -61,13 +73,9 @@ function openDir() {
     }
 }
 
-
-/**
- * Prints the help message.
- */
 function printHelp() {
-    const scriptName = GLib.path_get_basename(ARGV[0]);
-    console.log(`LaTeX Hub CLI
+    const scriptName = GLib.path_get_basename(selfPath);
+    console.log(`\n========== LaTeX Hub CLI ==========
     
 Usage: ${scriptName} [command]
 
@@ -83,12 +91,12 @@ Commands:
 
 
 function main() {
-    if (ARGV.length < 2) {
+    if (ARGV.length < 1) {
         printHelp();
         return;
     }
 
-    const command = ARGV[1];
+    const command = ARGV[0];
 
     switch (command) {
         case 'courses':

@@ -13,7 +13,11 @@ function selectCourse() {
     const courseTitles = courses.coursesList.map(c => c.info.title || c.name);
     let rofiArgs = ['-l', courses.length.toString()];
 
-    const currentIndex = courses.coursesList.findIndex(c => c.equals(current));
+    let currentIndex = -1;
+    if (current) {
+        currentIndex = courses.coursesList.findIndex(c => c.equals(current));
+    }
+
     if (currentIndex !== -1) {
         rofiArgs.push('-a', currentIndex.toString());
     }
@@ -42,12 +46,12 @@ function selectLecture() {
     const sortedLectures = [...lectures].sort((a, b) => b.number - a.number);
 
     const options = sortedLectures.map(lec => {
-        const title = generateShortTitle(lec.name);
+        const title = generateShortTitle(lec.title);
         const dateStr = lec.date ? lec.date.format('%a %d %b') : 'No Date';
         return `${lec.number.toString().padStart(2, ' ')}. <b>${title}</b> <span size='smaller'>${dateStr}</span>`;
     })
 
-    const rofiArgs = ['-l', `${sortedLectures.length}`, '-markup-rows', '-kb-custom-1', 'Ctrl+n'];
+    const rofiArgs = ['-l', `${sortedLectures.length}`, '-markup-rows', '-kb-row-down', 'Down', '-kb-custom-1', 'Ctrl+n'];
     const { key, index, _ } = rofi('Select lecture', options, rofiArgs);
 
     if (key === 0 && index !== -1) {
@@ -76,7 +80,7 @@ function selectLectureView() {
         const lectureRange = lectures.parseRangeString(command);
         lectures.updateLecturesInMaster(lectureRange);
         lectures.compileMaster();
-        console.log(`Compiled master for ${currentCourse.name} with view: ${options[index]}`);
+        console.log(`Compiled master for ${current.name} with view: ${options[index]}`);
     }
 }
 
@@ -121,8 +125,9 @@ function manageHomework() {
     const rofiArgs = [
         '-l', `${Math.min(7, sortedHomeworks.length)}`,
         '-markup-rows',
+        '-kb-row-down', 'Down',
         '-kb-custom-1', 'Ctrl+n', // new
-        'kb-custom-2', 'Ctrl+x' // complete
+        '-kb-custom-2', 'Ctrl+x' // complete
     ];
 
     const { key, index, _ } = rofi('Select course', options, rofiArgs);
