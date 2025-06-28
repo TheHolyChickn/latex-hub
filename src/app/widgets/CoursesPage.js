@@ -5,6 +5,7 @@ imports.gi.versions.Adw = '1';
 const { GObject, Gtk, Adw, GLib } = imports.gi;
 
 const { Courses } = imports.core.Courses;
+const { Homeworks } = imports.core.Homeworks;
 const RofiManager = imports.core.RofiManager;
 
 var CoursesPage = GObject.registerClass(
@@ -20,6 +21,7 @@ var CoursesPage = GObject.registerClass(
             });
 
             this.courses = new Courses();
+            this.homeworks = new Homeworks(this.courses);
 
             const splitView = new Adw.NavigationSplitView({
                 hexpand: true,
@@ -116,88 +118,181 @@ var CoursesPage = GObject.registerClass(
         }
 
         _createCourseDetailPage(course) {
-            // **THE FIX: Replicate the successful Dashboard structure**
+            const grid = new Gtk.Grid({
+                column_spacing: 20,
+                row_spacing: 20,
+                margin_top: 24, margin_bottom: 24,
+                margin_start: 24, margin_end: 24,
+                column_homogeneous: true,
+            });
 
-            // 1. The root widget is a ScrolledWindow to allow for scrolling.
+            const infoBox = this._buildInfoPanel(course);
+            grid.attach(infoBox, 0, 0, 1, 1);
+
+            const lecturesBox = this._buildLecturesPanel(course);
+            grid.attach(lecturesBox, 0, 1, 1, 1);
+
+            const homeworksBox = this._buildHomeworksPanel(course);
+            grid.attach(homeworksBox, 1, 0, 1, 2);
+
+            const gradesBox = this._buildGradesPanel();
+            grid.attach(gradesBox, 2, 0, 1, 2);
+
+            const scrolled = new Gtk.ScrolledWindow({
+                hscrollbar_policy: Gtk.PolicyType.NEVER,
+                vexpand: true,
+                child: grid,
+            });
+
+            return scrolled;
+        }
+
+        _buildInfoPanel(course) {
+            const frame = new Gtk.Frame({
+                label: 'Course Information',
+                css_classes: ['dashboard-card'],
+            });
+            const box = new Gtk.Box({
+                orientation: Gtk.Orientation.VERTICAL,
+                spacing: 10,
+                margin_top: 10, margin_bottom: 10,
+                margin_start: 10, margin_end: 10
+            });
+            frame.set_child(box);
+
+            box.append(new Adw.ActionRow({ title: 'Title', subtitle: course.info.title || 'N/A' }));
+            box.append(new Adw.ActionRow({ title: 'Professor', subtitle: course.info.professor || 'N/A' }));
+
+            const activeRow = new Adw.ActionRow({ title: 'Set as Active Course'});
+            const activeButton = new Gtk.Button({ icon_name: 'emblem-ok-symbolic', valign: Gtk.Align.CENTER });
+            activeButton.connect('clicked', () => {
+                this.courses.current = course;
+                console.log(`Set active course to: ${course.name}`);
+            });
+            activeRow.add_suffix(activeButton);
+            box.append(activeRow);
+
+            return frame;
+        }
+
+        _buildLecturesPanel(course) {
+            const frame = new Gtk.Frame({
+                label: 'Lectures',
+                css_classes: ['dashboard-card'],
+                vexpand: true,
+            });
+            const mainBox = new Gtk.Box({
+                orientation: Gtk.Orientation.VERTICAL,
+                spacing: 10,
+                margin_top: 10, margin_bottom: 10,
+                margin_start: 10, margin_end: 10
+            });
+            frame.set_child(mainBox);
+
+            const newButton = new Gtk.Button({ label: 'New', halign: Gtk.Align.END });
+            mainBox.append(newButton);
+
+            // **THE FIX: Use a ScrolledWindow -> Box pattern, no ListBox**
+            const scrolled = new Gtk.ScrolledWindow({
+                hscrollbar_policy: Gtk.PolicyType.NEVER,
+                vexpand: true,
+                min_content_height: 200,
+            });
+            const contentBox = new Gtk.Box({
+                orientation: Gtk.Orientation.VERTICAL,
+                spacing: 5,
+            });
+            scrolled.set_child(contentBox);
+
+            course.lectures.lecturesList.forEach(lec => {
+                const row = new Adw.ActionRow({ title: `Lec ${lec.number}`, subtitle: lec.title });
+                const editButton = new Gtk.Button({ icon_name: 'document-edit-symbolic', valign: Gtk.Align.CENTER });
+                editButton.connect('clicked', () => lec.edit());
+                row.add_suffix(editButton);
+                contentBox.append(row); // Append the row directly to the box
+            });
+
+            newButton.connect('clicked', () => {
+                course.lectures.newLecture();
+                console.log('New lecture created. For now, re-select the course to see the change.');
+            });
+
+            mainBox.append(scrolled);
+            return frame;
+        }
+
+        _buildHomeworksPanel(course) {
+            const frame = new Gtk.Frame({
+                label: 'Homework',
+                css_classes: ['dashboard-card'],
+                vexpand: true,
+            });
+            const mainBox = new Gtk.Box({
+                orientation: Gtk.Orientation.VERTICAL,
+                spacing: 10,
+                margin_top: 10, margin_bottom: 10,
+                margin_start: 10, margin_end: 10
+            });
+            frame.set_child(mainBox);
+
+            const newButton = new Gtk.Button({ label: 'New', halign: Gtk.Align.END });
+            mainBox.append(newButton);
+
+            // **THE FIX: Use a ScrolledWindow -> Box pattern, no ListBox**
             const scrolled = new Gtk.ScrolledWindow({
                 hscrollbar_policy: Gtk.PolicyType.NEVER,
                 vexpand: true,
             });
-
-            // 2. Inside it, a Box holds all the content. This is the key.
             const contentBox = new Gtk.Box({
                 orientation: Gtk.Orientation.VERTICAL,
-                spacing: 15,
-                margin_top: 24, margin_bottom: 24,
-                margin_start: 24, margin_end: 24,
+                spacing: 5,
             });
             scrolled.set_child(contentBox);
 
-            // --- Information Section ---
-            // Use a simple styled Label as a title.
-            const infoTitle = new Gtk.Label({
-                label: "<b>Course Information</b>",
-                use_markup: true,
-                halign: Gtk.Align.START,
-                css_classes: ['title-4'],
-                margin_bottom: 5,
-            });
-            contentBox.append(infoTitle);
+            const hws = this.homeworks.assignments[course.name] || [];
+            hws.forEach(hw => {
+                const row = new Adw.ActionRow({ title: hw.name, subtitle: `Due: ${hw.date}` });
+                if (hw.status) {
+                    row.add_css_class('dim-label');
+                    row.set_icon_name('emblem-ok-symbolic');
+                } else {
+                    const editButton = new Gtk.Button({ icon_name: 'document-edit-symbolic', valign: Gtk.Align.CENTER });
+                    editButton.connect('clicked', () => hw.openHomework());
+                    row.add_suffix(editButton);
 
-            // Add ActionRows directly to the contentBox.
-            contentBox.append(new Adw.ActionRow({ title: 'Title', subtitle: course.info.title || 'N/A' }));
-            contentBox.append(new Adw.ActionRow({ title: 'Professor', subtitle: course.info.professor || 'N/A' }));
-            contentBox.append(new Adw.ActionRow({ title: 'Course ID', subtitle: course.info.course_id || 'N/A' }));
-
-            // --- Actions Section ---
-            contentBox.append(new Gtk.Separator({ margin_top: 15, margin_bottom: 15 }));
-
-            const actionsTitle = new Gtk.Label({
-                label: "<b>Actions</b>",
-                use_markup: true,
-                halign: Gtk.Align.START,
-                css_classes: ['title-4'],
-                margin_bottom: 5,
-            });
-            contentBox.append(actionsTitle);
-
-            const lecturesRow = new Adw.ActionRow({ title: 'Lectures' });
-            const lecturesButton = new Gtk.Button({ icon_name: 'media-playlist-repeat-symbolic', valign: Gtk.Align.CENTER });
-            lecturesButton.connect('clicked', () => {
-                this.courses.current = course;
-                RofiManager.selectLecture();
-            });
-            lecturesRow.add_suffix(lecturesButton);
-            contentBox.append(lecturesRow);
-
-            const homeworksRow = new Adw.ActionRow({ title: 'Homeworks' });
-            const homeworksButton = new Gtk.Button({ icon_name: 'document-edit-symbolic', valign: Gtk.Align.CENTER });
-            homeworksButton.connect('clicked', () => {
-                this.courses.current = course;
-                RofiManager.manageHomework();
-            });
-            homeworksRow.add_suffix(homeworksButton);
-            contentBox.append(homeworksRow);
-
-            const gradesRow = new Adw.ActionRow({ title: 'Grades', subtitle: 'Coming soon!' });
-            gradesRow.set_activatable(false);
-            contentBox.append(gradesRow);
-
-            const configRow = new Adw.ActionRow({ title: 'Edit Config' });
-            const configButton = new Gtk.Button({ icon_name: 'document-properties-symbolic', valign: Gtk.Align.CENTER });
-            configButton.connect('clicked', () => {
-                const infoFilePath = GLib.build_filenamev([course.path.get_path(), 'info.json']);
-                try {
-                    GLib.spawn_command_line_async(`xdg-open "${infoFilePath}"`);
-                } catch(e) {
-                    console.error(`Failed to open info.json: ${e.message}`);
+                    const completeButton = new Gtk.Button({ icon_name: 'object-select-symbolic', valign: Gtk.Align.CENTER });
+                    completeButton.connect('clicked', () => {
+                        this.homeworks.completeHomework(course.name, hw.number);
+                        console.log(`Homework ${hw.number} completed. Refresh needed.`);
+                    });
+                    row.add_suffix(completeButton);
                 }
+                contentBox.append(row); // Append the row directly to the box
             });
-            configRow.add_suffix(configButton);
-            contentBox.append(configRow);
 
-            // 3. Return the root ScrolledWindow.
-            return scrolled;
+            newButton.connect('clicked', () => {
+                console.log('Future: open NewHomeworkDialog.');
+            });
+
+            mainBox.append(scrolled);
+            return frame;
+        }
+
+        _buildGradesPanel() {
+            const frame = new Gtk.Frame({
+                label: 'Grades',
+                css_classes: ['dashboard-card'],
+                vexpand: true,
+            });
+            const placeholder = new Adw.StatusPage({
+                icon_name: 'chart-multitype-symbolic',
+                title: 'Grades',
+                description: 'This feature is coming soon.',
+                vexpand: true,
+                css_classes: ['compact'],
+            });
+            frame.set_child(placeholder);
+            return frame;
         }
     }
 );
