@@ -4,9 +4,9 @@ for integration into hotkey daemons (as paired with WMs) for quick access to rof
 
 What the app should do:
 
-- implements gilles castel's scripts in a CLI (the python versions can already be found in this repo under Legacy Scripts, most are also already rewritten in js);
+- implements gilles castel's scripts in a CLI (the python versions can already be found in this repo under Legacy Scripts, and have also been rewritten into js, find them in src/core, cli implementation of most of them via src/cli/main.js);
 
-- implements my addition to his scripts which adds management for homework assignments (again, as a cli)
+- implements my addition to his scripts which adds management for homework assignments (also alr implemented, same locations and cli integration)
 
 - has a config file which manages the ROOT directory for classes, and also a PROJECTS directory for projects, and also a github link for the github these should be linked to (the github should be optional)
 
@@ -87,7 +87,4 @@ Currently, I have developed the config backends in `/src/config/*.js`, and most 
 ```
 - Course, Courses, Lecture, Lectures, Homework, Homeworks, and Countdown implement a lot of methods. For a full understanding of them, read the files themselves. CompileAllMasters and InitAllCourses are very simple and self explanatory. Read them for an understanding.
 - A basic gui has been implemented. This is just a placeholder, and I am not currently working on it. Disregard it unless otherwise instructed.
-
-Currently, I need to make some modifications to some of the structure before I can deploy the current version of the project for a full test run. The biggest issue is that when the LaTeX template code is pasted for homeworks and lecture notes (master files for courses), the preamble file has to be hardcoded. This kind of defeats the point of modularity of preambles. here are my ideas:
-- for lecture notes, the preamble should be set on creation. This means InitAllCourses needs to query the user for what preambles to include. In the future, this will be managed via GUI and the user will be able to select the files, but for now we're not going to work in a gui, we are working in a terminal, simply as proof of concept. The program should send a list of all available preamble file names, together with their description. The user should send a list of preamble file names to be used. The program is allowed to require specific formatting to make it easier to parse, since this is only proof of concept and not being pushed to production. The program should also print a list of templates together with each list of preambles they include, and if the user includes a template in their list the program should input all preambles in the template
-- for homeworks, the info.json for each course should save a list of preamble file_names, and that list should become the preamble files for homeworks.
+- After completing the refactor of Gilles Castel's setup, I did a fully successful test deployment. One error that I am disregarding for now is that when called via WM hotkey, `Lectures.compileMaster()` doesn't work. Will fix later, ignore this for now.
