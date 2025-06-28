@@ -14,8 +14,8 @@
     --shadow-color: rgba(93, 76, 86, 0.1);
 }
 
-/* Dark Mode Overrides */
-:root:dark {
+/* Dark Mode Overrides - **FIX HERE** */
+.dark {
     --bg-color: #2B2126;
     --text-color: #EAE3E6;
     --accent-color: #F472B6;
@@ -71,7 +71,41 @@ headerbar button {
     font-weight: bold;
 }
 
-/* --- Content Area --- */
+/* --- Dashboard Specific Styling --- */
+.dashboard-card {
+    background-color: var(--surface-color);
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 4px 8px var(--shadow-color);
+}
+
+.dashboard-card > label.label { /* Style the frame's title */
+    font-family: var(--font-heading);
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: var(--secondary-accent-color);
+}
+
+.transparent-list, .transparent-list row {
+    background-color: transparent;
+}
+
+.statistic-container {
+    /* Style the whole label widget if needed */
+}
+
+/* Target the specific spans inside the label's markup */
+.statistic-container > label > span:first-child {
+    color: var(--accent-color);
+}
+
+.statistic-container > label > span:last-child {
+    font-size: small;
+    opacity: 0.7;
+}
+
+
+/* --- General Content Area --- */
 .content-card {
     background-color: var(--surface-color);
     color: var(--text-color);
@@ -85,7 +119,7 @@ headerbar button {
     font-size: xx-large;
     font-weight: bold;
 }
-.content-card .dim-label {
+.content-card .dim-label, .dim-label {
     opacity: 0.7;
 }
 

@@ -96,6 +96,8 @@ function refreshAccessToken(refreshToken, callback) {
                 };
                 googleAuthToken = newToken;
                 saveToken(googleAuthToken);
+
+                // **FIX:** Schedule the *next* refresh from here, and only here.
                 scheduleTokenRefresh(googleAuthToken);
                 callback(true);
             } catch (e) {
@@ -123,33 +125,49 @@ function authenticate(callback) {
     if (isExpired) {
         if (googleAuthToken.refresh_token) {
             console.log("Access token is expired, attempting to refresh.");
+            // **FIX:** Only call the refresh function and then stop.
+            // The callback will handle what happens next.
             return refreshAccessToken(googleAuthToken.refresh_token, callback);
         }
         console.error("Token is expired and no refresh_token is available. Please re-authenticate manually by deleting the old token file.");
         return callback(false);
     }
+
+    // **FIX:** This part only runs if the token is NOT expired.
     console.log("Authentication successful using existing token.");
     scheduleTokenRefresh(googleAuthToken);
     return callback(true);
 }
 
 function scheduleTokenRefresh(token) {
-    if (refreshTimeoutId) GLib.Source.remove(refreshTimeoutId);
+    // **FIX:** Clear the previous timeout *before* setting a new one.
+    if (refreshTimeoutId) {
+        GLib.Source.remove(refreshTimeoutId);
+        refreshTimeoutId = null; // Set to null after removing
+    }
+
     if (token && token.expiry_date) {
         const expiryDateTime = GLib.DateTime.new_from_iso8601(token.expiry_date, null);
         const now = GLib.DateTime.new_now_utc();
-        const refreshDelayMs = expiryDateTime.difference(now) - (5 * 60 * 1000);
+        // Calculate difference in milliseconds
+        const refreshDelayMs = expiryDateTime.difference(now);
 
-        if (refreshDelayMs > 0) {
-            refreshTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Math.floor(refreshDelayMs / 1000), () => {
+        // Set the timeout to be 5 minutes before actual expiry
+        const timeoutMs = refreshDelayMs - (5 * 60 * 1000);
+
+        if (timeoutMs > 0) {
+            refreshTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Math.floor(timeoutMs / 1000), () => {
+                // When the timer fires, just authenticate. It will handle the refresh.
                 authenticate(() => {});
-                return GLib.SOURCE_REMOVE;
+                return GLib.SOURCE_REMOVE; // The timer should only run once.
             });
-        } else if (token.refresh_token) {
+        } else if (googleAuthToken.refresh_token) {
+            // If we are already past the refresh point, trigger it immediately.
             authenticate(() => {});
         }
     }
 }
+
 
 function getEventsFromApi(calendarId, timeMin, timeMax, callback) {
     if (!googleAuthToken || !googleAuthToken.access_token) {
@@ -240,6 +258,7 @@ function fetchTodaysEvents(callback) {
     });
 }
 
+
 function truncate(str, length) {
     const ellipsis = ' ...';
     if (!str || str.length <= length) return str || '';
@@ -302,19 +321,8 @@ let eventCache = [];
 let currentSchedulerTimeouts = [];
 
 function fetchEventsAndManageSchedule() {
-    const now = GLib.DateTime.new_now_local();
-    // THIS IS THE FIX. This is the correct way to construct a new DateTime for the start of the day.
-    const morning = GLib.DateTime.new_local(
-        now.get_year(),
-        now.get_month(),
-        now.get_day_of_month(),
-        0, 0, 0
-    );
-    const evening = morning.add_days(1).add_seconds(-1);
-
-    getEventsFromApi(USERCALENDARID, morning, evening, (rawEvents) => {
-        eventCache = parseEventsFromResponse(rawEvents);
-        eventCache.sort((a, b) => a.start.compare(b.start));
+    fetchTodaysEvents(events => {
+        eventCache = events;
 
         currentSchedulerTimeouts.forEach(id => GLib.Source.remove(id));
         currentSchedulerTimeouts = [];
@@ -326,7 +334,7 @@ function fetchEventsAndManageSchedule() {
                 activateCourse(event);
             }
             else if (event.start.compare(now_local) > 0) {
-                const delayMilliseconds = event.start.difference(now_local) / 1000;
+                const delayMilliseconds = event.start.difference(now_local);
                 if (delayMilliseconds > 0) {
                     const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Math.floor(delayMilliseconds / 1000), () => {
                         activateCourse(event);
@@ -406,6 +414,6 @@ function main() {
 
 var exports = { fetchTodaysEvents };
 
-if (System.programInvocationName.endsWith('Countdown.js')) {
-    main();
-}
+//if (System.programInvocationName.endsWith('Countdown.js')) {
+//    main();
+//}

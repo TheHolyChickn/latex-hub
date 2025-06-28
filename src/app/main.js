@@ -16,6 +16,7 @@ const { LogUtils } = imports.config.LogUtils;
 const { PreambleUtils } = imports.config.PreambleUtils;
  */
 const { DashboardPage } = imports.app.widgets.DashboardPage;
+const { CoursesPage } = imports.app.widgets.CoursesPage;
 
 class LatexHubApp {
     constructor() {
@@ -80,8 +81,10 @@ class LatexHubApp {
         const dashboard = new DashboardPage();
         contentStack.add_titled(dashboard, 'dashboard', 'Dashboard');
 
+        const coursesPage = new CoursesPage();
+        contentStack.add_titled(coursesPage, 'courses', 'Courses');
+
         // placeholder pages
-        this._addPlaceholderPage(contentStack, 'courses', 'Courses', 'notebook-symbolic');
         this._addPlaceholderPage(contentStack, 'projects', 'Projects', 'folder-symbolic');
         this._addPlaceholderPage(contentStack, 'settings', 'Settings', 'emblem-system-symbolic');
 

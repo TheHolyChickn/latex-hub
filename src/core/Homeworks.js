@@ -224,19 +224,19 @@ var Homeworks = class Homeworks {
      */
     getSemesterHomeworkCounts() {
         let completed = 0;
-        let inProgress = 0;
+        let in_progress = 0;
         for (const courseName in this.assignments) {
             if (this.assignments.hasOwnProperty(courseName)) {
                 this.assignments[courseName].forEach(hw => {
                     if (!hw.status) {
-                        inProgress++;
+                        in_progress++;
                     } else {
                         completed++;
                     }
-                })
+                });
             }
         }
-        return { completed, inProgress };
+        return { completed, in_progress };
     }
 
     /**
