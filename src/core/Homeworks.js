@@ -219,6 +219,27 @@ var Homeworks = class Homeworks {
     }
 
     /**
+     * Gets the counts of completed and in-progress homework for the semester.
+     * @returns {{completed: number, inProgress: number}}
+     */
+    getSemesterHomeworkCounts() {
+        let completed = 0;
+        let inProgress = 0;
+        for (const courseName in this.assignments) {
+            if (this.assignments.hasOwnProperty(courseName)) {
+                this.assignments[courseName].forEach(hw => {
+                    if (!hw.status) {
+                        inProgress++;
+                    } else {
+                        completed++;
+                    }
+                })
+            }
+        }
+        return { completed, inProgress };
+    }
+
+    /**
      * Helper to parse "MM/DD/YY" date strings for sorting.
      * Returns { year, month (0-11), day } or null.
      * @param {string} dateStr

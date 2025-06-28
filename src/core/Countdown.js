@@ -212,6 +212,34 @@ function parseEventsFromResponse(rawEvents) {
     return events;
 }
 
+/**
+ * Fetches and parses today's Google Calendar events.
+ * @param {function(Array<Object>)} callback - A function to call with the array of parsed event objects.
+ */
+function fetchTodaysEvents(callback) {
+    authenticate(authSuccess => {
+        if (!authSuccess) {
+            callback([]);
+            return;
+        }
+
+        const now = GLib.DateTime.new_now_local();
+        const morning = GLib.DateTime.new_local(
+            now.get_year(),
+            now.get_month(),
+            now.get_day_of_month(),
+            0, 0, 0
+        );
+        const evening = morning.add_days(1).add_seconds(-1);
+
+        getEventsFromApi(USERCALENDARID, morning, evening, (rawEvents) => {
+            const parsedEvents = parseEventsFromResponse(rawEvents);
+            parsedEvents.sort((a, b) => a.start.compare(b.start));
+            callback(parsedEvents);
+        });
+    });
+}
+
 function truncate(str, length) {
     const ellipsis = ' ...';
     if (!str || str.length <= length) return str || '';
@@ -376,4 +404,8 @@ function main() {
     }
 }
 
-main();
+var exports = { fetchTodaysEvents };
+
+if (System.programInvocationName.endsWith('Countdown.js')) {
+    main();
+}
