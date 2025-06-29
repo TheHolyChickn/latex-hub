@@ -1,28 +1,23 @@
-/* --- Digital Dollhouse Theme --- */
-
-/* Light Mode is the default */
+/* Dark Theme with Blue Accents */
 :root {
     --font-heading: "Comfortaa", sans-serif;
     --font-body: "Poppins", sans-serif;
 
-    --bg-color: #FEF9FA;
-    --text-color: #5D4C56;
-    --accent-color: #F472B6;
-    --accent-fg-color: #FFFFFF;
-    --secondary-accent-color: #A78BFA;
-    --surface-color: #FFFFFF;
-    --shadow-color: rgba(93, 76, 86, 0.1);
-}
+    /* Dark background colors */
+    --bg-color: #21252b; /* Dark Charcoal */
+    --surface-color: #282c34; /* Slightly Lighter Gray for Cards/Headers */
 
-/* Dark Mode Overrides - **FIX HERE** */
-.dark {
-    --bg-color: #2B2126;
-    --text-color: #EAE3E6;
-    --accent-color: #F472B6;
-    --accent-fg-color: #FFFFFF;
-    --secondary-accent-color: #C4B5FD;
-    --surface-color: #382C33;
-    --shadow-color: rgba(0, 0, 0, 0.2);
+    /* Text colors */
+    --text-color: #abb2bf; /* Soft Light Gray for body text */
+    --text-color-heading: #e6e6e6; /* Brighter White for headings */
+
+    /* Accent colors */
+    --accent-color: #61afef; /* A nice shade of blue */
+    --accent-fg-color: #ffffff; /* Text on top of accent color */
+    --secondary-accent-color: #56b6c2; /* A complementary cyan/teal */
+
+    /* Other colors */
+    --shadow-color: rgba(0, 0, 0, 0.25);
 }
 
 /* --- Base Styling --- */
@@ -35,14 +30,14 @@
 /* --- Header Bar --- */
 headerbar {
     background-color: var(--surface-color);
-    color: var(--text-color);
+    color: var(--text-color-heading);
     border-bottom: 1px solid var(--shadow-color);
     box-shadow: 0 2px 4px var(--shadow-color);
 }
 headerbar .title {
     font-family: var(--font-heading);
     font-weight: bold;
-    color: var(--accent-color);
+    color: var(--text-color-heading);
 }
 headerbar button {
     color: var(--text-color);
@@ -52,18 +47,17 @@ headerbar button {
 .navigation-sidebar {
     background-color: transparent; /* Inherit from main window */
     padding: 8px;
-    border-right: none;
+    border-right: 1px solid var(--shadow-color);
 }
 .navigation-sidebar row {
     border-radius: 8px;
     margin-bottom: 4px;
 }
 .navigation-sidebar row:hover {
-    background-color: var(--shadow-color);
+    background-color: var(--surface-color);
 }
 .navigation-sidebar row:selected {
     background-color: var(--accent-color);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 .navigation-sidebar row:selected label {
     color: var(--accent-fg-color);
@@ -86,15 +80,6 @@ headerbar button {
     color: var(--secondary-accent-color);
 }
 
-.transparent-list, .transparent-list row {
-    background-color: transparent;
-}
-
-.statistic-container {
-    /* Style the whole label widget if needed */
-}
-
-/* Target the specific spans inside the label's markup */
 .statistic-container > label > span:first-child {
     color: var(--accent-color);
 }
@@ -123,25 +108,10 @@ headerbar button {
     opacity: 0.7;
 }
 
-/* --- Custom Widgets --- */
-.custom-button {
-    font-family: var(--font-heading);
-    font-weight: bold;
+/* --- Custom Widgets & Buttons --- */
+button.suggested-action {
     color: var(--accent-fg-color);
     background-color: var(--accent-color);
     border: none;
     border-radius: 8px;
-    padding: 12px 24px;
-    box-shadow: 0 2px 4px var(--shadow-color);
-    transition: all 0.2s ease-in-out;
-}
-.custom-button:hover {
-    background-color: var(--accent-color);
-    box-shadow: 0 4px 8px var(--shadow-color);
-    transform: translateY(-2px);
-}
-.custom-button:active {
-    background-color: var(--accent-color);
-    box-shadow: 0 1px 2px var(--shadow-color);
-    transform: translateY(0);
 }

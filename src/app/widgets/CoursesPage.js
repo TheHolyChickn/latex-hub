@@ -1,3 +1,5 @@
+// src/app/widgets/CoursesPage.js
+
 'use strict';
 
 imports.gi.versions.Gtk = '4.0';
@@ -7,6 +9,7 @@ const { GObject, Gtk, Adw, GLib } = imports.gi;
 const { Courses } = imports.core.Courses;
 const { Homeworks } = imports.core.Homeworks;
 const RofiManager = imports.core.RofiManager;
+const { NewHomeworkDialog } = imports.app.widgets.NewHomeworkDialog;
 
 var CoursesPage = GObject.registerClass(
     {
@@ -67,16 +70,15 @@ var CoursesPage = GObject.registerClass(
         }
 
         _populateCourseList() {
+            this.courseListBox.remove_all();
             const courseNames = this.courses.coursesList.map(course => course.name) || [];
 
             if (courseNames.length === 0) {
                 const row = new Gtk.ListBoxRow();
                 row.set_child(new Gtk.Label({
                     label: "No courses configured.",
-                    margin_top: 12,
-                    margin_bottom: 12,
-                    margin_start: 12,
-                    margin_end: 12
+                    margin_top: 12, margin_bottom: 12,
+                    margin_start: 12, margin_end: 12
                 }));
                 this.courseListBox.append(row);
                 return;
@@ -87,10 +89,8 @@ var CoursesPage = GObject.registerClass(
                 row.course_name = name;
                 row.set_child(new Gtk.Label({
                     label: name.replace(/-/g, ' '),
-                    margin_top: 12,
-                    margin_bottom: 12,
-                    margin_start: 12,
-                    margin_end: 12,
+                    margin_top: 12, margin_bottom: 12,
+                    margin_start: 12, margin_end: 12,
                     halign: Gtk.Align.START
                 }));
                 this.courseListBox.append(row);
@@ -113,38 +113,27 @@ var CoursesPage = GObject.registerClass(
                     return;
                 }
             }
-
             this.viewStack.set_visible_child_name(courseName);
         }
 
         _createCourseDetailPage(course) {
             const grid = new Gtk.Grid({
-                column_spacing: 20,
-                row_spacing: 20,
+                column_spacing: 20, row_spacing: 20,
                 margin_top: 24, margin_bottom: 24,
                 margin_start: 24, margin_end: 24,
                 column_homogeneous: true,
             });
 
-            const infoBox = this._buildInfoPanel(course);
-            grid.attach(infoBox, 0, 0, 1, 1);
+            grid.attach(this._buildInfoPanel(course), 0, 0, 1, 1);
+            grid.attach(this._buildLecturesPanel(course), 0, 1, 1, 1);
+            grid.attach(this._buildHomeworksPanel(course), 1, 0, 1, 2);
+            grid.attach(this._buildGradesPanel(), 2, 0, 1, 2);
 
-            const lecturesBox = this._buildLecturesPanel(course);
-            grid.attach(lecturesBox, 0, 1, 1, 1);
-
-            const homeworksBox = this._buildHomeworksPanel(course);
-            grid.attach(homeworksBox, 1, 0, 1, 2);
-
-            const gradesBox = this._buildGradesPanel();
-            grid.attach(gradesBox, 2, 0, 1, 2);
-
-            const scrolled = new Gtk.ScrolledWindow({
+            return new Gtk.ScrolledWindow({
                 hscrollbar_policy: Gtk.PolicyType.NEVER,
                 vexpand: true,
                 child: grid,
             });
-
-            return scrolled;
         }
 
         _buildInfoPanel(course) {
@@ -175,6 +164,14 @@ var CoursesPage = GObject.registerClass(
             return frame;
         }
 
+        _createLectureRow(lec) {
+            const row = new Adw.ActionRow({ title: `Lec ${lec.number}`, subtitle: lec.title });
+            const editButton = new Gtk.Button({ icon_name: 'document-edit-symbolic', valign: Gtk.Align.CENTER });
+            editButton.connect('clicked', () => lec.edit());
+            row.add_suffix(editButton);
+            return row;
+        }
+
         _buildLecturesPanel(course) {
             const frame = new Gtk.Frame({
                 label: 'Lectures',
@@ -192,33 +189,94 @@ var CoursesPage = GObject.registerClass(
             const newButton = new Gtk.Button({ label: 'New', halign: Gtk.Align.END });
             mainBox.append(newButton);
 
-            // **THE FIX: Use a ScrolledWindow -> Box pattern, no ListBox**
             const scrolled = new Gtk.ScrolledWindow({
                 hscrollbar_policy: Gtk.PolicyType.NEVER,
                 vexpand: true,
                 min_content_height: 200,
             });
-            const contentBox = new Gtk.Box({
-                orientation: Gtk.Orientation.VERTICAL,
-                spacing: 5,
-            });
+            const contentBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 5 });
             scrolled.set_child(contentBox);
 
-            course.lectures.lecturesList.forEach(lec => {
-                const row = new Adw.ActionRow({ title: `Lec ${lec.number}`, subtitle: lec.title });
-                const editButton = new Gtk.Button({ icon_name: 'document-edit-symbolic', valign: Gtk.Align.CENTER });
-                editButton.connect('clicked', () => lec.edit());
-                row.add_suffix(editButton);
-                contentBox.append(row); // Append the row directly to the box
+            course.lectures.lecturesList.slice().reverse().forEach(lec => {
+                contentBox.append(this._createLectureRow(lec));
             });
 
             newButton.connect('clicked', () => {
-                course.lectures.newLecture();
-                console.log('New lecture created. For now, re-select the course to see the change.');
+                const newLecture = course.lectures.newLecture();
+                if (newLecture) {
+                    newLecture.edit();
+                    contentBox.prepend(this._createLectureRow(newLecture));
+                }
             });
 
             mainBox.append(scrolled);
             return frame;
+        }
+
+        _createHomeworkRow(hw) {
+            const row = new Adw.ActionRow({ title: hw.name, subtitle: `Due: ${hw.date}` });
+
+            const editButton = new Gtk.Button({ icon_name: 'document-edit-symbolic', valign: Gtk.Align.CENTER });
+            editButton.connect('clicked', () => hw.openHomework());
+
+            const completeButton = new Gtk.Button({ icon_name: 'object-select-symbolic', valign: Gtk.Align.CENTER });
+            completeButton.connect('clicked', () => {
+                this.homeworks.completeHomework(hw.course.name, hw.number);
+                hw.status = true;
+
+                const contentBox = row.get_parent();
+                if (contentBox) {
+                    // **THE FIX:** Defer the UI refresh until the event handler is complete.
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                        this._populateHomeworkList(contentBox, hw.course.name);
+                        return GLib.SOURCE_REMOVE; // Ensures the function runs only once
+                    });
+                }
+            });
+
+            if (hw.status) {
+                row.add_css_class('dim-label');
+                row.set_icon_name('emblem-ok-symbolic');
+            } else {
+                row.add_suffix(editButton);
+                row.add_suffix(completeButton);
+            }
+
+            return row;
+        }
+
+        _populateHomeworkList(contentBox, courseName) {
+            let child = contentBox.get_first_child();
+            while (child) {
+                contentBox.remove(child);
+                child = contentBox.get_first_child();
+            }
+
+            const parseDate = (dateStr) => {
+                if (!dateStr || typeof dateStr !== 'string') return null;
+                const parts = dateStr.split('/');
+                if (parts.length !== 3) return null;
+                return new Date(`20${parts[2]}`, parts[0] - 1, parts[1]);
+            };
+
+            const allHws = this.homeworks.assignments[courseName] || [];
+
+            const incompleteHws = allHws.filter(hw => !hw.status);
+            const completedHws = allHws.filter(hw => hw.status);
+
+            incompleteHws.sort((a, b) => {
+                const dateA = parseDate(a.date);
+                const dateB = parseDate(b.date);
+                if (!dateA) return 1;
+                if (!dateB) return -1;
+                return dateA - dateB;
+            });
+
+            const sortedHws = [...incompleteHws, ...completedHws];
+
+            sortedHws.forEach(hw => {
+                contentBox.append(this._createHomeworkRow(hw));
+            });
         }
 
         _buildHomeworksPanel(course) {
@@ -238,40 +296,34 @@ var CoursesPage = GObject.registerClass(
             const newButton = new Gtk.Button({ label: 'New', halign: Gtk.Align.END });
             mainBox.append(newButton);
 
-            // **THE FIX: Use a ScrolledWindow -> Box pattern, no ListBox**
-            const scrolled = new Gtk.ScrolledWindow({
-                hscrollbar_policy: Gtk.PolicyType.NEVER,
-                vexpand: true,
-            });
-            const contentBox = new Gtk.Box({
-                orientation: Gtk.Orientation.VERTICAL,
-                spacing: 5,
-            });
+            const scrolled = new Gtk.ScrolledWindow({ hscrollbar_policy: Gtk.PolicyType.NEVER, vexpand: true });
+            const contentBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 5 });
             scrolled.set_child(contentBox);
 
-            const hws = this.homeworks.assignments[course.name] || [];
-            hws.forEach(hw => {
-                const row = new Adw.ActionRow({ title: hw.name, subtitle: `Due: ${hw.date}` });
-                if (hw.status) {
-                    row.add_css_class('dim-label');
-                    row.set_icon_name('emblem-ok-symbolic');
-                } else {
-                    const editButton = new Gtk.Button({ icon_name: 'document-edit-symbolic', valign: Gtk.Align.CENTER });
-                    editButton.connect('clicked', () => hw.openHomework());
-                    row.add_suffix(editButton);
-
-                    const completeButton = new Gtk.Button({ icon_name: 'object-select-symbolic', valign: Gtk.Align.CENTER });
-                    completeButton.connect('clicked', () => {
-                        this.homeworks.completeHomework(course.name, hw.number);
-                        console.log(`Homework ${hw.number} completed. Refresh needed.`);
-                    });
-                    row.add_suffix(completeButton);
-                }
-                contentBox.append(row); // Append the row directly to the box
-            });
+            this._populateHomeworkList(contentBox, course.name);
 
             newButton.connect('clicked', () => {
-                console.log('Future: open NewHomeworkDialog.');
+                const dialog = new NewHomeworkDialog(this.get_root(), this.courses);
+
+                dialog.connect('submit', (_source, variant) => {
+                    const variantDict = variant.deep_unpack();
+
+                    const newItemData = {
+                        name:     variantDict.name.deep_unpack(),
+                        date:     variantDict.date.deep_unpack(),
+                        preamble: variantDict.preamble.deep_unpack(),
+                        status:   variantDict.status.deep_unpack(),
+                    };
+
+                    this.homeworks.addHomework(
+                        variantDict.courseName.deep_unpack(),
+                        newItemData
+                    );
+
+                    this._populateHomeworkList(contentBox, course.name);
+                });
+
+                dialog.present();
             });
 
             mainBox.append(scrolled);
