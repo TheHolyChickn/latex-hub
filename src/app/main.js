@@ -17,6 +17,7 @@ const { PreambleUtils } = imports.config.PreambleUtils;
  */
 const { DashboardPage } = imports.app.widgets.DashboardPage;
 const { CoursesPage } = imports.app.widgets.CoursesPage;
+const { LibraryPage } = imports.app.widgets.LibraryPage;
 
 class LatexHubApp {
     constructor() {
@@ -84,6 +85,9 @@ class LatexHubApp {
         const coursesPage = new CoursesPage();
         contentStack.add_titled(coursesPage, 'courses', 'Courses');
 
+        const libraryPage = new LibraryPage();
+        contentStack.add_titled(libraryPage, 'library', 'Library');
+
         // placeholder pages
         this._addPlaceholderPage(contentStack, 'projects', 'Projects', 'folder-symbolic');
         this._addPlaceholderPage(contentStack, 'settings', 'Settings', 'emblem-system-symbolic');
@@ -112,6 +116,7 @@ class LatexHubApp {
         // Add rows to the sidebar
         listBox.append(this._createSidebarRow('Dashboard', 'dashboard'));
         listBox.append(this._createSidebarRow('Courses', 'courses'));
+        listBox.append(this._createSidebarRow('Library', 'library'));
         listBox.append(this._createSidebarRow('Projects', 'projects'));
         listBox.append(this._createSidebarRow('Settings', 'settings'));
 

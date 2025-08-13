@@ -10,7 +10,8 @@ const CONFIG_DIR = GLib.build_filenamev([
 const CONFIG_PATHS = {
     config: GLib.build_filenamev([CONFIG_DIR, 'config.json']),
     log: GLib.build_filenamev([CONFIG_DIR, 'log.json']),
-    preambles: GLib.build_filenamev([CONFIG_DIR, 'preambles', 'preambles.json'])
+    preambles: GLib.build_filenamev([CONFIG_DIR, 'preambles', 'preambles.json']),
+    library: GLib.build_filenamev([CONFIG_DIR, 'library.json'])
 };
 
 var ConfigManager = class ConfigManager {
@@ -80,6 +81,20 @@ var ConfigManager = class ConfigManager {
     static savePreambles(preambles) {
         this.ensureDirExists();
         this._saveJsonFile(CONFIG_PATHS.preambles, preambles);
+    }
+
+    // library stuff
+
+    static loadLibrary() {
+        this.ensureDirExists();
+        return this._loadJsonFile(CONFIG_PATHS.library, {
+            entries: []
+        });
+    }
+
+    static saveLibrary(libraryData) {
+        this.ensureDirExists();
+        this._saveJsonFile(CONFIG_PATHS.library, libraryData);
     }
 
     // other shit
