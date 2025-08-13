@@ -95,12 +95,8 @@ var LibraryPage = GObject.registerClass(
         _onNewEntryClicked() {
             const dialog = new NewLibraryItemDialog(this.get_root(), this.library);
             dialog.connect('submit', (_source, variant) => {
-                // The 'variant' is a dictionary of variants ('a{sv}'). Unpack it.
                 const variantDict = variant.deep_unpack();
 
-                // **THE FIX**: Manually unpack each value from the dictionary
-                // to create a pure JavaScript object. Use .deep_unpack() for arrays
-                // and .unpack() for simple types (string, number, etc.).
                 const newEntryData = {
                     id:             variantDict['id'].unpack(),
                     entry_type:     variantDict['entry_type'].unpack(),
@@ -108,15 +104,16 @@ var LibraryPage = GObject.registerClass(
                     title:          variantDict['title'].unpack(),
                     authors:        variantDict['authors'].deep_unpack(),
                     date:           { year: variantDict['year'].unpack() },
+                    abstract:       variantDict['abstract'].unpack(),
+                    publication_info: variantDict['publication_info'].unpack(),
                     tags:           variantDict['tags'].deep_unpack(),
                     personal_notes: variantDict['personal_notes'].unpack(),
                     status:         variantDict['status'].unpack(),
-                    abstract:       variantDict['abstract'].unpack(),
+                    bibtex:         variantDict['bibtex'].unpack(),
                     web_link:       variantDict['web_link'].unpack(),
                 };
 
                 this.library.addEntry(newEntryData);
-                // Refresh the list view, which will now receive a valid object
                 this._onSearchChanged();
             });
             dialog.present();
