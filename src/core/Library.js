@@ -8,11 +8,11 @@ const ByteArray = imports.byteArray;
 const { ConfigManager } = imports.config.ConfigManager;
 const { LibraryItem } = imports.core.LibraryItem;
 
-// Helper to create a shared Soup.SessionAsync for all Library instances
 const _httpSession = new Soup.SessionAsync();
 
+
 /**
- * Parses the raw XML string from the arXiv API response.
+ * Parses the raw XML string from the arXiv API response using string searching.
  * @param {string} xmlString - The XML content from the API.
  * @returns {object|null} A data object or null on failure.
  * @private
@@ -20,28 +20,44 @@ const _httpSession = new Soup.SessionAsync();
 function _parseArxivXml(xmlString) {
     if (!xmlString) return null;
 
-    // Helper to extract content from a specific tag
-    const getTagContent = (tagName, xml) => {
-        const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\/${tagName}>`, 'i');
-        const match = xml.match(regex);
-        return match ? match[1].trim().replace(/\s+/g, ' ') : null;
+    // Helper to find content between two tags using string indexing
+    const getContent = (xml, tagName) => {
+        const startTag = `<${tagName}>`;
+        const endTag = `</${tagName}>`;
+        const startIndex = xml.indexOf(startTag);
+        if (startIndex === -1) return null;
+        const endIndex = xml.indexOf(endTag, startIndex);
+        if (endIndex === -1) return null;
+        return xml.substring(startIndex + startTag.length, endIndex).trim();
     };
 
-    const entryXml = getTagContent('entry', xmlString);
+    const entryXml = getContent(xmlString, 'entry');
     if (!entryXml) return null;
 
-    const title = getTagContent('title', entryXml);
-    const rawSummary = getTagContent('summary', entryXml);
-    const summary = _cleanLatex(rawSummary);
-    const published = getTagContent('published', entryXml); // e.g., 2014-01-22T15:23:19Z
-    const arxivId = (getTagContent('id', entryXml) || '').split('/').pop().split('v')[0];
+    const rawTitle = getContent(entryXml, 'title');
+    const rawSummary = getContent(entryXml, 'summary');
+    const published = getContent(entryXml, 'published');
+    const rawId = getContent(entryXml, 'id') || '';
 
-    const authors = [...entryXml.matchAll(/<author>[\s\S]*?<name>([\s\S]*?)<\/name>[\s\S]*?<\/author>/g)]
-        .map(match => match[1].trim());
+    const title = _cleanLatex(rawTitle);
+    const summary = _cleanLatex(rawSummary);
+    const arxivId = (rawId.split('/abs/')[1] || '').split('v')[0];
+    // More robust author parsing
+    const authors = [];
+    let authorBlock = entryXml;
+    while (authorBlock.includes('<author>')) {
+        const authorXml = getContent(authorBlock, 'author');
+        if (authorXml) {
+            const authorName = getContent(authorXml, 'name');
+            if (authorName) {
+                authors.push(_cleanLatex(authorName));
+            }
+        }
+        authorBlock = authorBlock.substring(authorBlock.indexOf('</author>') + 9);
+    }
 
     if (!title || !arxivId || authors.length === 0) return null;
 
-    // Parse date components from 'published' string
     let date = {};
     if (published) {
         try {
@@ -51,16 +67,11 @@ function _parseArxivXml(xmlString) {
                 date.month = dt.get_month();
                 date.day = dt.get_day_of_month();
             }
-        } catch (e) {
-            console.warn(`Could not parse date "${published}": ${e.message}`);
-        }
+        } catch (e) { console.warn(`Could not parse date "${published}": ${e.message}`); }
     }
-
 
     return { title, authors, date, abstract: summary, arxivId };
 }
-
-
 /**
  * A simple parser to remove common LaTeX commands from a string.
  * @param {string} text - The string containing LaTeX.
@@ -70,25 +81,18 @@ function _parseArxivXml(xmlString) {
 function _cleanLatex(text) {
     if (!text) return '';
     return text
-        // First, remove the math delimiters ($ and $$)
         .replace(/\$\$?/g, '')
-        // Replace commands with one argument, e.g., \pmod{p} -> p
         .replace(/\\([a-zA-Z]+)\s*\{([^}]+)\}/g, '$2')
-        // Replace parameter-less commands, e.g., \xi -> xi, \sum -> sum
         .replace(/\\([a-zA-Z]+)/g, '$1')
-        // Clean up sub/superscripts, but keep the content
         .replace(/_\{([^}]+)\}/g, '_$1')
         .replace(/\^\{([^}]+)\}/g, '^$1')
-        // Remove any remaining stray braces
         .replace(/[{}]/g, '')
-        // Normalize whitespace that may have been left over
         .replace(/\s\s+/g, ' ')
         .trim();
 }
 
 var Library = class Library {
     constructor() {
-        /** @type {LibraryItem[]} */
         this.entries = [];
         this._loadFromFile();
     }
@@ -121,7 +125,7 @@ var Library = class Library {
         }
 
         const newItem = new LibraryItem(itemData);
-        this.entries.unshift(newItem); // Add to the beginning of the list
+        this.entries.unshift(newItem);
         this.save();
         return newItem;
     }
@@ -130,14 +134,10 @@ var Library = class Library {
         return this.entries.find(entry => entry.id === id);
     }
 
-    /**
-     * Fetches metadata from arXiv and adds a new entry to the library.
-     * @param {string} arxivId - The arXiv identifier (e.g., '1401.5345').
-     * @param {function(LibraryItem|null)} callback - Function to call on completion.
-     */
-    addEntryFromArxiv(arxivId, callback) {
+    fetchArxivData(arxivId, callback) {
         console.log(`Fetching data for arXiv:${arxivId}...`);
-        const uri = `http://export.arxiv.org/api/query?id_list=${arxivId}`;
+        const encodedArxivId = encodeURIComponent(arxivId);
+        const uri = `http://export.arxiv.org/api/query?id_list=${encodedArxivId}`;
         const message = Soup.Message.new('GET', uri);
 
         _httpSession.queue_message(message, (session, msg) => {
@@ -160,8 +160,7 @@ var Library = class Library {
                     return callback(null);
                 }
 
-                // Construct the full entry object
-                const newItemData = {
+                callback({
                     id: `arxiv:${parsedData.arxivId}`,
                     entry_type: "paper",
                     source: "arxiv",
@@ -172,15 +171,7 @@ var Library = class Library {
                     arxiv_id: parsedData.arxivId,
                     web_link: `https://arxiv.org/abs/${parsedData.arxivId}`,
                     status: "to-read",
-                    tags: [],
-                    personal_notes: "",
-                    related_entries: [],
-                    table_of_contents: [],
-                    key_items: []
-                };
-
-                const newItem = this.addEntry(newItemData);
-                callback(newItem);
+                });
 
             } catch(e) {
                 console.error(`Error processing arXiv response: ${e.message}`);
@@ -189,45 +180,32 @@ var Library = class Library {
         });
     }
 
-    /**
-     * Searches and filters library entries based on given criteria.
-     * @param {object} filters - An object containing filter criteria.
-     * @param {string} [filters.query] - The text string to search for.
-     * @param {string[]} [filters.fields] - Fields to search within (e.g., ['title', 'abstract']).
-     * @param {string[]} [filters.tags] - A list of tags that must all be present.
-     * @param {string} [filters.status] - A specific status to filter by.
-     * @returns {LibraryItem[]} An array of matching library items.
-     */
+    addEntryFromArxiv(arxivId, callback) {
+        this.fetchArxivData(arxivId, (newItemData) => {
+            if (newItemData) {
+                const newItem = this.addEntry(newItemData);
+                callback(newItem);
+            } else {
+                callback(null);
+            }
+        });
+    }
+
     search(filters = {}) {
         const { query, fields, tags, status } = filters;
         const lowerCaseQuery = query ? query.toLowerCase() : null;
 
         return this.entries.filter(entry => {
-            // Filter by status
-            if (status && entry.status !== status) {
-                return false;
-            }
-
-            // Filter by tags (entry must have ALL specified tags)
+            if (status && entry.status !== status) return false;
             if (tags && tags.length > 0) {
-                const hasAllTags = tags.every(tag => entry.tags.includes(tag));
-                if (!hasAllTags) {
-                    return false;
-                }
+                if (!tags.every(tag => entry.tags.includes(tag))) return false;
             }
-
-            // Filter by text query
             if (lowerCaseQuery && fields && fields.length > 0) {
-                const isMatch = fields.some(field => {
+                if (!fields.some(field => {
                     const fieldValue = entry[field];
                     return fieldValue && typeof fieldValue === 'string' && fieldValue.toLowerCase().includes(lowerCaseQuery);
-                });
-                if (!isMatch) {
-                    return false;
-                }
+                })) return false;
             }
-
-            // If it passed all filters, include it
             return true;
         });
     }
