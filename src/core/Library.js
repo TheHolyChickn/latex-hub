@@ -7,6 +7,7 @@ const ByteArray = imports.byteArray;
 
 const { ConfigManager } = imports.config.ConfigManager;
 const { LibraryItem } = imports.core.LibraryItem;
+const { generateBibtex } = imports.core.BibtexUtils;
 
 const _httpSession = new Soup.SessionAsync();
 
@@ -208,6 +209,45 @@ var Library = class Library {
             }
             return true;
         });
+    }
+
+    /**
+     * Updates an existing entry with new data and saves the library.
+     * @param {string} itemId - The ID of the item to update.
+     * @param {object} updates - An object with the properties to update.
+     * @returns {LibraryItem|null} The updated item, or null if not found.
+     */
+    updateEntry(itemId, updates) {
+        const itemToUpdate = this.getEntryById(itemId);
+
+        if (itemToUpdate) {
+            itemToUpdate.update(updates);
+
+            const newBibtex = generateBibtex(itemToUpdate._data);
+            itemToUpdate.update({ bibtex: newBibtex });
+
+            this.save();
+            return itemToUpdate;
+        }
+
+        console.warn(`Could not update: Item with ID "${itemId}" not found.`);
+        return null;
+    }
+
+    /**
+     * Regenerates the BibTeX for an entry and saves it.
+     * @param {string} itemId - The ID of the item.
+     */
+    regenerateBibtex(itemId) {
+        const item = this.getEntryById(itemId);
+        if (item) {
+            // This function needs to be accessible here.
+            // A better design would be to make generateBibtex a method of LibraryItem.
+            // For now, we'll assume a global helper or duplicate it.
+            // Let's assume a global `generateBibtex` for simplicity.
+            const newBibtex = generateBibtex(item._data);
+            this.updateEntry(itemId, { bibtex: newBibtex });
+        }
     }
 };
 

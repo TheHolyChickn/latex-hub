@@ -162,8 +162,9 @@ var LibraryPage = GObject.registerClass(
 
         _createListRow(item) {
             const row = new Adw.ActionRow({
+                // FIX: Use the item data directly to ensure this updates
                 title: item.title,
-                subtitle: item.authors.join(', '),
+                subtitle: (item.authors || []).join(', '),
                 title_lines: 1,
                 subtitle_lines: 1,
             });
@@ -172,79 +173,164 @@ var LibraryPage = GObject.registerClass(
         }
 
         _createDetailPage(item) {
-            const box = new Gtk.Box({
+            const mainDetailBox = new Gtk.Box({
                 orientation: Gtk.Orientation.VERTICAL,
-                spacing: 12,
-                margin_top: 24, margin_bottom: 24, margin_start: 24, margin_end: 24,
             });
+
+            const viewStack = new Gtk.Stack();
 
             const header = new Adw.HeaderBar({
-                title_widget: new Adw.WindowTitle({ title: item.title, subtitle: `${item.date.year} - ${item.authors[0]}` }),
                 show_end_title_buttons: false,
+                title_widget: new Adw.WindowTitle({ title: item.title, subtitle: `${item.date.year} - ${(item.authors[0] || '')}` }),
             });
-            box.append(header);
+            mainDetailBox.append(header);
+            mainDetailBox.append(viewStack);
 
-            const buttonBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, halign: Gtk.Align.CENTER, margin_bottom: 12 });
-
-            if (item.web_link) {
-                const webButton = new Gtk.Button();
-                const webContent = new Adw.ButtonContent({
-                    label: item.source === 'arxiv' ? 'Open arXiv Page' : 'Open Web Link',
-                    icon_name: 'web-browser-symbolic'
+            // This function builds the read-only display view
+            const buildDisplayView = (currentItem) => {
+                // This function's content is correct and remains unchanged.
+                // It builds the view with buttons and non-editable labels.
+                const displayBox = new Gtk.Box({
+                    orientation: Gtk.Orientation.VERTICAL,
+                    spacing: 12,
+                    margin_top: 24, margin_bottom: 24, margin_start: 24, margin_end: 24,
+                    vexpand: true,
                 });
-                webButton.set_child(webContent);
-                webButton.connect('clicked', () => Gtk.show_uri(this.get_root(), item.web_link, Gdk.CURRENT_TIME));
-                buttonBox.append(webButton);
-            }
-            if (item.local_path) {
-                const pdfButton = new Gtk.Button();
-                const pdfContent = new Adw.ButtonContent({
-                    label: 'Open PDF',
-                    icon_name: 'application-pdf-symbolic'
-                });
-                pdfButton.set_child(pdfContent);
-                pdfButton.connect('clicked', () => Gtk.show_uri(this.get_root(), `file://${item.local_path}`, Gdk.CURRENT_TIME));
-                buttonBox.append(pdfButton);
-            }
-            if (item.bibtex) {
-                const bibtexButton = new Gtk.Button();
-                const bibtexContent = new Adw.ButtonContent({
-                    label: 'Copy BibTeX Citation',
-                    icon_name: 'edit-copy-symbolic'
-                });
-                bibtexButton.set_child(bibtexContent);
-                bibtexButton.connect('clicked', () => {
-                    const clipboard = this.get_display().get_clipboard();
-                    clipboard.set(item.bibtex);
-                });
-                buttonBox.append(bibtexButton);
-            }
 
-            box.append(buttonBox);
+                const buttonBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, halign: Gtk.Align.CENTER, margin_bottom: 12 });
+                if (currentItem.web_link) {
+                    const webButton = new Gtk.Button();
+                    const webContent = new Adw.ButtonContent({ label: currentItem.source === 'arxiv' ? 'Open arXiv Page' : 'Open Web Link', icon_name: 'web-browser-symbolic' });
+                    webButton.set_child(webContent);
+                    webButton.connect('clicked', () => Gtk.show_uri(this.get_root(), currentItem.web_link, Gdk.CURRENT_TIME));
+                    buttonBox.append(webButton);
+                }
+                if (currentItem.local_path) {
+                    const pdfButton = new Gtk.Button();
+                    const pdfContent = new Adw.ButtonContent({ label: 'Open PDF', icon_name: 'application-pdf-symbolic' });
+                    pdfButton.set_child(pdfContent);
+                    pdfButton.connect('clicked', () => Gtk.show_uri(this.get_root(), `file://${currentItem.local_path}`, Gdk.CURRENT_TIME));
+                    buttonBox.append(pdfButton);
+                }
+                if (currentItem.bibtex) {
+                    const bibtexButton = new Gtk.Button();
+                    const bibtexContent = new Adw.ButtonContent({ label: 'Copy BibTeX Citation', icon_name: 'edit-copy-symbolic' });
+                    bibtexButton.set_child(bibtexContent);
+                    bibtexButton.connect('clicked', () => {
+                        const clipboard = this.get_display().get_clipboard();
+                        clipboard.set(currentItem.bibtex);
+                    });
+                    buttonBox.append(bibtexButton);
+                }
+                displayBox.append(buttonBox);
 
-            if (item.abstract) {
-                const abstractRow = new Adw.ExpanderRow({ title: 'Abstract' });
-                abstractRow.add_row(new Gtk.Label({
-                    label: item.abstract, wrap: true, xalign: 0, css_classes: ['dim-label'],
-                    margin_start: 12, margin_end: 12, margin_top: 6, margin_bottom: 6,
-                }));
-                box.append(abstractRow);
-            }
-            if (item.personal_notes) {
-                const notesRow = new Adw.ExpanderRow({ title: 'Personal Notes' });
-                notesRow.add_row(new Gtk.Label({
-                    label: item.personal_notes, wrap: true, xalign: 0,
-                    margin_start: 12, margin_end: 12, margin_top: 6, margin_bottom: 6,
-                }));
-                box.append(notesRow);
-            }
+                if (currentItem.abstract) {
+                    const abstractRow = new Adw.ExpanderRow({ title: 'Abstract' });
+                    abstractRow.add_row(new Gtk.Label({ label: currentItem.abstract, wrap: true, xalign: 0, css_classes: ['dim-label'], margin_start: 12, margin_end: 12, margin_top: 6, margin_bottom: 6 }));
+                    displayBox.append(abstractRow);
+                }
+                if (currentItem.personal_notes) {
+                    const notesRow = new Adw.ExpanderRow({ title: 'Personal Notes' });
+                    notesRow.add_row(new Gtk.Label({ label: currentItem.personal_notes, wrap: true, xalign: 0, margin_start: 12, margin_end: 12, margin_top: 6, margin_bottom: 6 }));
+                    displayBox.append(notesRow);
+                }
 
-            const scrolledWindow = new Gtk.ScrolledWindow({
+                const displayScrolled = new Gtk.ScrolledWindow({
+                    hscrollbar_policy: Gtk.PolicyType.NEVER,
+                    child: displayBox,
+                    vexpand: true,
+                });
+                return displayScrolled;
+            };
+
+            let displayView = buildDisplayView(item);
+            viewStack.add_named(displayView, 'display');
+
+            // --- Build the COMPLETE Edit View ---
+            const editGroup = new Adw.PreferencesGroup({
+                margin_top: 12, margin_bottom: 12, margin_start: 12, margin_end: 12,
+            });
+
+            const titleEntry = new Gtk.Entry({ text: item.title });
+            editGroup.add(new Adw.ActionRow({ title: 'Title', child: titleEntry }));
+
+            const authorsEntry = new Gtk.Entry({ text: (item.authors || []).join(', ') });
+            editGroup.add(new Adw.ActionRow({ title: 'Authors', subtitle: 'Comma-separated', child: authorsEntry }));
+
+            const yearEntry = new Gtk.Entry({ text: (item.date.year || '').toString() });
+            editGroup.add(new Adw.ActionRow({ title: 'Year', child: yearEntry }));
+
+            const tagsEntry = new Gtk.Entry({ text: (item.tags || []).join(', ') });
+            editGroup.add(new Adw.ActionRow({ title: 'Tags', subtitle: 'Comma-separated', child: tagsEntry }));
+
+            const notesView = new Gtk.TextView({ vexpand: true, wrap_mode: Gtk.WrapMode.WORD_CHAR });
+            notesView.get_buffer().set_text(item.personal_notes || '', -1);
+            const notesScrolled = new Gtk.ScrolledWindow({ child: notesView, min_content_height: 200 });
+            // FIX: Place the notes editor inside an expander row for consistency
+            const notesExpander = new Adw.ExpanderRow({ title: 'Personal Notes', child: notesScrolled });
+            editGroup.add(notesExpander);
+
+            const editScrolled = new Gtk.ScrolledWindow({
                 hscrollbar_policy: Gtk.PolicyType.NEVER,
-                child: box
+                child: editGroup,
+            });
+            viewStack.add_named(editScrolled, 'edit');
+
+            // --- Header Bar Button Logic ---
+            const editButton = new Gtk.Button({ icon_name: 'document-edit-symbolic' });
+            const saveButton = new Gtk.Button({ label: 'Save', css_classes: ['suggested-action'] });
+            const cancelButton = new Gtk.Button({ label: 'Cancel' });
+
+            header.pack_end(editButton);
+
+            const switchToDisplayMode = () => {
+                header.remove(saveButton);
+                header.remove(cancelButton);
+                header.pack_end(editButton);
+                viewStack.set_visible_child_name('display');
+            };
+
+            editButton.connect('clicked', () => {
+                header.remove(editButton);
+                header.pack_start(cancelButton);
+                header.pack_end(saveButton);
+                viewStack.set_visible_child_name('edit');
             });
 
-            return scrolledWindow;
+            cancelButton.connect('clicked', switchToDisplayMode);
+
+            // FIX: Implement the full save logic
+            saveButton.connect('clicked', () => {
+                const notesBuffer = notesView.get_buffer();
+                const newNotes = notesBuffer.get_text(notesBuffer.get_start_iter(), notesBuffer.get_end_iter(), true);
+
+                const updatedItem = this.library.updateEntry(item.id, {
+                    title: titleEntry.get_text(),
+                    authors: authorsEntry.get_text().split(',').map(s => s.trim()).filter(Boolean),
+                    date: { year: parseInt(yearEntry.get_text()) || item.date.year },
+                    personal_notes: newNotes,
+                    tags: tagsEntry.get_text().split(',').map(s => s.trim()).filter(Boolean)
+                });
+
+                if (updatedItem) {
+                    // Re-build the display view with the fresh data
+                    const newDisplayView = buildDisplayView(updatedItem);
+                    viewStack.remove(displayView); // Remove the old, stale view
+                    viewStack.add_named(newDisplayView, 'display'); // Add the new one
+                    displayView = newDisplayView; // Update our reference to the current view
+
+                    // Update the header bar title and subtitle
+                    header.get_title_widget().set_title(updatedItem.title);
+                    header.get_title_widget().set_subtitle(`${updatedItem.date.year} - ${updatedItem.authors[0] || ''}`);
+
+                    // Refresh the main list in the sidebar to reflect the changes
+                    this._onSearchChanged();
+                }
+
+                switchToDisplayMode();
+            });
+
+            return mainDetailBox;
         }
     }
 );

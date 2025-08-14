@@ -1,34 +1,10 @@
-// src/app/widgets/NewLibraryItemDialog.js
-
 'use strict';
 
 imports.gi.versions.Gtk = '4.0';
 imports.gi.versions.Adw = '1';
 const { GObject, Gtk, Adw, GLib } = imports.gi;
 
-// generateBibtex function remains the same
-function generateBibtex(data) {
-    const entryType = data.entry_type === 'book' ? '@book' : '@article';
-    const authorLastName = (data.authors[0] || 'Unknown').split(' ').pop();
-    const key = `${authorLastName}${data.date.year}`;
-    let bibtexString = `${entryType}{${key},\n`;
-    bibtexString += `  title={${data.title}},\n`;
-    bibtexString += `  author={${data.authors.join(' and ')}},\n`;
-    bibtexString += `  year={${data.date.year}},\n`;
-    if (data.publication_info) {
-        if (data.entry_type === 'paper' || data.entry_type === 'article') {
-            bibtexString += `  journal={${data.publication_info}},\n`;
-        } else {
-            bibtexString += `  publisher={${data.publication_info}},\n`;
-        }
-    }
-    if (data.arxiv_id) {
-        bibtexString += `  eprint={${data.arxiv_id}},\n`;
-        bibtexString += `  archivePrefix={arXiv},\n`;
-    }
-    bibtexString += `}`;
-    return bibtexString;
-}
+const { generateBibtex } = imports.core.BibtexUtils;
 
 var NewLibraryItemDialog = GObject.registerClass(
     {
@@ -84,11 +60,11 @@ var NewLibraryItemDialog = GObject.registerClass(
 
             this.entryTypeSelector = Gtk.DropDown.new_from_strings(['Paper', 'Book', 'Article', 'Lecture Notes', 'Other']);
             detailsGroup.add(new Adw.ActionRow({ title: 'Entry Type', child: this.entryTypeSelector }));
-            this.titleEntry = new Gtk.Entry();
+            this.titleEntry = new Gtk.Entry({ placeholder_text: 'Title' });
             detailsGroup.add(new Adw.ActionRow({ title: 'Title', child: this.titleEntry }));
-            this.authorsEntry = new Gtk.Entry({ placeholder_text: 'Authors (e.g., Jacob Lurie, A. Zee)' });
+            this.authorsEntry = new Gtk.Entry({ placeholder_text: 'Authors (separate with a comma)' });
             detailsGroup.add(new Adw.ActionRow({ title: 'Authors', child: this.authorsEntry }));
-            this.yearEntry = new Gtk.Entry({ input_purpose: Gtk.InputPurpose.DIGITS, placeholder_text: 'Year (e.g., 2009)' });
+            this.yearEntry = new Gtk.Entry({ input_purpose: Gtk.InputPurpose.DIGITS, placeholder_text: 'Year' });
             detailsGroup.add(new Adw.ActionRow({ title: 'Year', child: this.yearEntry }));
 
             // --- Optional Details in Expander ---
@@ -99,9 +75,9 @@ var NewLibraryItemDialog = GObject.registerClass(
             contentBox.append(expander);
 
             // Create rows for each optional widget and add them TO THE EXPANDER
-            this.pubEntry = new Gtk.Entry({ placeholder_text: 'e.g., Cambridge University Press' });
+            this.pubEntry = new Gtk.Entry({ placeholder_text: 'How published' });
             expander.add_row(new Adw.ActionRow({ title: 'Publication Info', child: this.pubEntry }));
-            this.tagsEntry = new Gtk.Entry({ placeholder_text: 'Tags (e.g., math, topos-theory)' });
+            this.tagsEntry = new Gtk.Entry({ placeholder_text: 'Tags (separate with a comma)' });
             expander.add_row(new Adw.ActionRow({ title: 'Tags', child: this.tagsEntry }));
 
             // FIX 3: Add labels for text views and put them in their own rows
