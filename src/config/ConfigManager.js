@@ -38,6 +38,7 @@ var ConfigManager = class ConfigManager {
         return this._loadJsonFile(CONFIG_PATHS.config, {
             root_dir: GLib.build_filenamev([GLib.get_home_dir(), 'Classes']),
             projects_dir: GLib.build_filenamev([GLib.get_home_dir(), 'Projects']),
+            pdf_download_dir: GLib.build_filenamev([GLib.get_home_dir(), 'Library_PDFs']),
             current_courses: [],
             current_projects: [],
             archived_courses: [],

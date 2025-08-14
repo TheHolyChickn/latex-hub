@@ -114,6 +114,17 @@ var LibraryPage = GObject.registerClass(
                 };
 
                 this.library.addEntry(newEntryData);
+                // Trigger download if the source is arXiv and the box was checked
+                if (newEntryData.source === 'arxiv' && dialog.downloadPdfCheck.get_active()) {
+                    this.library.downloadArxivPdf(newEntryData.id, (success) => {
+                        if (success) {
+                            // refresh the detail view if it's visible
+                            // to show the now-active "Open PDF" button.
+                            this._onSearchChanged();
+                        }
+                    });
+                }
+
                 this._onSearchChanged();
             });
             dialog.present();

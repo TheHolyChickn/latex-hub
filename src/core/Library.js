@@ -299,6 +299,64 @@ var Library = class Library {
             }
         }
     }
+
+    /**
+     * Downloads the PDF for an arXiv item and updates its local_path.
+     * @param {string} itemId - The ID of the library item.
+     * @param {function(boolean)} callback - A function to call with success status.
+     */
+    downloadArxivPdf(itemId, callback) {
+        const item = this.getEntryById(itemId);
+        if (!item || item.source !== 'arxiv' || !item.arxiv_id) {
+            console.error("Item is not a valid arXiv entry. Cannot download PDF.");
+            return callback(false);
+        }
+
+        const pdfDir = ConfigManager.get('pdf_download_dir');
+        if (!pdfDir) {
+            console.error("PDF download directory is not configured.");
+            return callback(false);
+        }
+
+        // Ensure the directory exists
+        try {
+            if (!GLib.file_test(pdfDir, GLib.FileTest.IS_DIR)) {
+                GLib.mkdir_with_parents(pdfDir, 0o755);
+            }
+        } catch (e) {
+            console.error(`Failed to create PDF directory at ${pdfDir}: ${e.message}`);
+            return callback(false);
+        }
+
+        const pdfUrl = `https://arxiv.org/pdf/${item.arxiv_id}.pdf`;
+        // Sanitize the title to create a safe filename
+        const safeTitle = item.title.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        const filename = `${item.arxiv_id.replace('/', '-')}_${safeTitle}.pdf`;
+        const localPath = GLib.build_filenamev([pdfDir, filename]);
+
+        console.log(`Downloading ${pdfUrl} to ${localPath}...`);
+
+        const message = Soup.Message.new('GET', pdfUrl);
+        _httpSession.queue_message(message, (session, msg) => {
+            if (msg.status_code !== 200) {
+                console.error(`Failed to download PDF. Status: ${msg.status_code}`);
+                return callback(false);
+            }
+
+            try {
+                const bytes = msg.response_body.flatten().get_data();
+                GLib.file_set_contents(localPath, bytes);
+
+                // Update the item's local_path and save
+                this.updateEntry(itemId, { local_path: localPath });
+                console.log("Download complete.");
+                callback(true);
+            } catch (e) {
+                console.error(`Error saving PDF to ${localPath}: ${e.message}`);
+                callback(false);
+            }
+        });
+    }
 };
 
 var exports = { Library };

@@ -49,6 +49,8 @@ var NewLibraryItemDialog = GObject.registerClass(
             const arxivButton = new Gtk.Button({ label: 'Fetch from arXiv' });
             arxivBox.append(this.arxivEntry);
             arxivBox.append(arxivButton);
+            this.downloadPdfCheck = new Gtk.CheckButton({ label: 'Download PDF', active: true });
+            arxivBox.append(this.downloadPdfCheck);
             contentBox.append(new Adw.PreferencesGroup({
                 title: 'Auto-fill from arXiv',
                 header_suffix: arxivBox,
