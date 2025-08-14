@@ -7,8 +7,8 @@ imports.gi.versions.Adw = '1';
 const { GObject, Gtk, Adw, Gdk, Pango } = imports.gi;
 
 const { Library } = imports.core.Library;
-// 1. Import the new dialog
 const { NewLibraryItemDialog } = imports.app.widgets.NewLibraryItemDialog;
+const { KeyResultDialog } = imports.app.widgets.KeyResultDialog;
 
 
 var LibraryPage = GObject.registerClass(
@@ -232,6 +232,59 @@ var LibraryPage = GObject.registerClass(
                     displayBox.append(notesRow);
                 }
 
+                if (currentItem.key_items && currentItem.key_items.length > 0) {
+                    const keyItemsExpander = new Adw.ExpanderRow({ title: 'Key Results' });
+
+                    const keyItemsListBox = new Gtk.ListBox({
+                        selection_mode: Gtk.SelectionMode.NONE,
+                        css_classes: ['boxed-list'],
+                    });
+                    keyItemsExpander.add_row(keyItemsListBox);
+
+                    currentItem.key_items.forEach(keyItem => {
+                        const resultButton = new Gtk.Button({
+                            css_classes: ['flat'],
+                            halign: Gtk.Align.FILL,
+                        });
+
+                        const titleString = keyItem.number ? `${keyItem.type.charAt(0).toUpperCase() + keyItem.type.slice(1)} ${keyItem.number}` : keyItem.title;
+                        const subtitleString = keyItem.number ? keyItem.title : (keyItem.tags || []).join(', ');
+
+                        // Create a vertical box to hold the title and subtitle labels
+                        const labelBox = new Gtk.Box({
+                            orientation: Gtk.Orientation.VERTICAL,
+                            spacing: 2,
+                            margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6,
+                        });
+
+                        const titleLabel = new Gtk.Label({
+                            label: `<b>${titleString}</b>`,
+                            use_markup: true,
+                            xalign: 0,
+                        });
+                        const subtitleLabel = new Gtk.Label({
+                            label: subtitleString,
+                            xalign: 0,
+                            css_classes: ['dim-label'],
+                        });
+
+                        labelBox.append(titleLabel);
+                        labelBox.append(subtitleLabel);
+                        resultButton.set_child(labelBox);
+
+                        if (currentItem.local_path && keyItem.page > 0) {
+                            resultButton.connect('clicked', () => {
+                                const uri = `file://${currentItem.local_path}#page=${keyItem.page}`;
+                                Gtk.show_uri(this.get_root(), uri, Gdk.CURRENT_TIME);
+                            });
+                        } else {
+                            resultButton.set_sensitive(false);
+                        }
+
+                        keyItemsListBox.append(resultButton);
+                    });                    displayBox.append(keyItemsExpander);
+                }
+
                 const displayScrolled = new Gtk.ScrolledWindow({
                     hscrollbar_policy: Gtk.PolicyType.NEVER,
                     child: displayBox,
@@ -327,6 +380,83 @@ var LibraryPage = GObject.registerClass(
             const notesScrolled = new Gtk.ScrolledWindow({ child: notesView, min_content_height: 150 });
             const notesExpander = new Adw.ExpanderRow({ title: 'Personal Notes', child: notesScrolled });
             editGroup.add(notesExpander);
+
+            const keyResultsExpander = new Adw.ExpanderRow({
+                title: 'Key Results'
+            });
+            editGroup.add(keyResultsExpander);
+
+            const keyResultsBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6 });
+            const keyResultsList = new Gtk.ListBox({
+                selection_mode: Gtk.SelectionMode.NONE,
+                css_classes: ['boxed-list'],
+            });
+
+            const buildKeyResultsList = (parentItem) => {
+                keyResultsList.remove_all();
+                (parentItem.key_items || []).forEach(kr => {
+                    const row = new Adw.ActionRow({
+                        title: kr.title,
+                        subtitle: (kr.tags || []).join(', '),
+                    });
+
+                    const editKeyButton = new Gtk.Button({ icon_name: 'document-edit-symbolic' });
+                    editKeyButton.connect('clicked', () => {
+                        const dialog = new KeyResultDialog(this.get_root(), kr);
+                        dialog.connect('submit', (_source, variant) => {
+                            const variantDict = variant.deep_unpack();
+                            const data = {
+                                type: variantDict['type'].unpack(),
+                                title: variantDict['title'].unpack(),
+                                tags: variantDict['tags'].deep_unpack(),
+                                number: variantDict['number'].unpack(),
+                                page: variantDict['page'].unpack(),
+                            };
+                            this.library.updateKeyItem(parentItem.id, kr.id, data);
+                            buildKeyResultsList(this.library.getEntryById(parentItem.id));
+                        });
+                        dialog.present();
+                    });
+                    row.add_suffix(editKeyButton);
+
+                    const removeKeyButton = new Gtk.Button({ icon_name: 'edit-delete-symbolic' });
+                    removeKeyButton.connect('clicked', () => {
+                        this.library.removeKeyItem(parentItem.id, kr.id);
+                        buildKeyResultsList(this.library.getEntryById(parentItem.id));
+                    });
+                    row.add_suffix(removeKeyButton);
+
+                    keyResultsList.append(row);
+                });
+            };
+
+            const addKeyButton = new Gtk.Button({
+                label: 'Add Key Result...',
+                halign: Gtk.Align.START,
+                margin_top: 6,
+                margin_bottom: 6,
+            });
+            addKeyButton.connect('clicked', () => {
+                const dialog = new KeyResultDialog(this.get_root());
+                dialog.connect('submit', (_source, variant) => {
+                    const variantDict = variant.deep_unpack();
+                    const data = {
+                        type: variantDict['type'].unpack(),
+                        title: variantDict['title'].unpack(),
+                        tags: variantDict['tags'].deep_unpack(),
+                        number: variantDict['number'].unpack(),
+                        page: variantDict['page'].unpack(),
+                    };
+                    this.library.addKeyItem(item.id, data);
+                    buildKeyResultsList(this.library.getEntryById(item.id));
+                });
+                dialog.present();
+            });
+
+            keyResultsBox.append(addKeyButton);
+            keyResultsBox.append(keyResultsList);
+            keyResultsExpander.add_row(keyResultsBox);
+            buildKeyResultsList(item); // Initial population
 
             const editScrolled = new Gtk.ScrolledWindow({
                 hscrollbar_policy: Gtk.PolicyType.NEVER,

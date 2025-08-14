@@ -250,6 +250,55 @@ var Library = class Library {
             this.updateEntry(itemId, { bibtex: newBibtex });
         }
     }
+
+    /**
+     * Adds a new key item (definition, theorem, etc.) to a library entry.
+     * @param {string} itemId - The ID of the parent library entry.
+     * @param {object} keyItemData - The data for the new key item { type, title, tags }.
+     */
+    addKeyItem(itemId, keyItemData) {
+        const item = this.getEntryById(itemId);
+        if (item) {
+            if (!item._data.key_items) {
+                item._data.key_items = [];
+            }
+            // Add a simple unique ID for editing/deleting later
+            keyItemData.id = `key_${Date.now()}`;
+            item._data.key_items.push(keyItemData);
+            this.save();
+        }
+    }
+
+    /**
+     * Removes a key item from a library entry.
+     * @param {string} itemId - The ID of the parent library entry.
+     * @param {string} keyItemId - The ID of the key item to remove.
+     */
+    removeKeyItem(itemId, keyItemId) {
+        const item = this.getEntryById(itemId);
+        if (item && item._data.key_items) {
+            item._data.key_items = item._data.key_items.filter(ki => ki.id !== keyItemId);
+            this.save();
+        }
+    }
+
+    /**
+     * Updates an existing key item in a library entry.
+     * @param {string} itemId - The ID of the parent library entry.
+     * @param {string} keyItemId - The ID of the key item to update.
+     * @param {object} updates - The new data for the key item.
+     */
+    updateKeyItem(itemId, keyItemId, updates) {
+        const item = this.getEntryById(itemId);
+        if (item && item._data.key_items) {
+            const itemIndex = item._data.key_items.findIndex(ki => ki.id === keyItemId);
+            if (itemIndex !== -1) {
+                // Merge the updates with the existing data
+                item._data.key_items[itemIndex] = { ...item._data.key_items[itemIndex], ...updates };
+                this.save();
+            }
+        }
+    }
 };
 
 var exports = { Library };
