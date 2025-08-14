@@ -194,21 +194,54 @@ var Library = class Library {
     }
 
     search(filters = {}) {
-        const { query, fields, tags, status } = filters;
+        const { query, fields, tags, status, searchKeyResults } = filters;
         const lowerCaseQuery = query ? query.toLowerCase() : null;
 
         return this.entries.filter(entry => {
-            if (status && entry.status !== status) return false;
-            if (tags && tags.length > 0) {
-                if (!tags.every(tag => entry.tags.includes(tag))) return false;
+            // Filter by status (unchanged)
+            if (status && entry.status !== status) {
+                return false;
             }
-            if (lowerCaseQuery && fields && fields.length > 0) {
-                if (!fields.some(field => {
+
+            // Filter by tags (unchanged)
+            if (tags && tags.length > 0) {
+                const hasAllTags = tags.every(tag => (entry.tags || []).includes(tag));
+                if (!hasAllTags) {
+                    return false;
+                }
+            }
+
+            // If there's no text query, the item passes the text search part
+            if (!lowerCaseQuery) {
+                return true;
+            }
+
+            // --- Main Text Search Logic ---
+            let textMatch = false;
+
+            // Search in the main entry fields (title, abstract, etc.)
+            if (fields && fields.length > 0) {
+                textMatch = fields.some(field => {
                     const fieldValue = entry[field];
                     return fieldValue && typeof fieldValue === 'string' && fieldValue.toLowerCase().includes(lowerCaseQuery);
-                })) return false;
+                });
             }
-            return true;
+
+            // If we have a match already, we can skip the key results search
+            if (textMatch) {
+                return true;
+            }
+
+            // If specified, also search in the key results
+            if (searchKeyResults && entry.key_items && entry.key_items.length > 0) {
+                textMatch = entry.key_items.some(keyItem => {
+                    const titleMatch = keyItem.title && keyItem.title.toLowerCase().includes(lowerCaseQuery);
+                    const tagsMatch = keyItem.tags && keyItem.tags.some(tag => tag.toLowerCase().includes(lowerCaseQuery));
+                    return titleMatch || tagsMatch;
+                });
+            }
+
+            return textMatch;
         });
     }
 

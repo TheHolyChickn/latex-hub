@@ -54,10 +54,19 @@ var LibraryPage = GObject.registerClass(
             const sidebarHeader = new Adw.HeaderBar({
                 css_classes: ['flat'],
             });
+// This is the button that will toggle the search mode
+            this.searchModeButton = new Gtk.ToggleButton({
+                icon_name: 'find-location-symbolic', // An icon suggesting a deeper search
+                tooltip_text: 'Toggle between searching the library and searching key results'
+            });
+
             this.searchBar = new Gtk.SearchEntry({
-                placeholder_text: 'Search Library...',
+                placeholder_text: 'Search Library...', // Default placeholder
                 hexpand: true,
             });
+
+            // The search bar and toggle button are packed directly into the header
+            sidebarHeader.pack_start(this.searchModeButton);
             sidebarHeader.set_title_widget(this.searchBar);
 
             const newButton = new Gtk.Button({ icon_name: 'list-add-symbolic' });
@@ -108,6 +117,7 @@ var LibraryPage = GObject.registerClass(
             // --- Connect Signals ---
             this.searchBar.connect('search-changed', this._onSearchChanged.bind(this));
             this.listBox.connect('row-selected', this._onRowSelected.bind(this));
+            this.searchModeButton.connect('toggled', this._onSearchChanged.bind(this));
             newButton.connect('clicked', this._onNewEntryClicked.bind(this));
 
             // --- Populate List ---
@@ -165,7 +175,6 @@ var LibraryPage = GObject.registerClass(
         _onSearchChanged() {
             const query = this.searchBar.get_text();
 
-            // Determine the active status filter
             let statusFilter = null;
             if (this.toReadButton.get_active()) {
                 statusFilter = 'to-read';
@@ -174,16 +183,30 @@ var LibraryPage = GObject.registerClass(
             } else if (this.finishedButton.get_active()) {
                 statusFilter = 'finished';
             }
-            // If the "All" button is active, statusFilter remains null, which finds all items.
+
+            // --- NEW LOGIC FOR SEARCH MODE ---
+            let searchFields = ['title', 'abstract', 'personal_notes', 'authors'];
+            let searchKeyResults = false;
+
+            if (this.searchModeButton.get_active()) {
+                // Key Results Mode
+                this.searchBar.set_placeholder_text('Search Key Results...');
+                searchFields = []; // Don't search main fields
+                searchKeyResults = true;
+            } else {
+                // Library Mode (Default)
+                this.searchBar.set_placeholder_text('Search Library...');
+                searchKeyResults = false;
+            }
 
             const results = this.library.search({
                 query: query,
-                fields: ['title', 'abstract', 'personal_notes', 'authors'],
-                status: statusFilter, // Add the status to the search criteria
+                fields: searchFields,
+                status: statusFilter,
+                searchKeyResults: searchKeyResults,
             });
             this._populateList(results);
         }
-
 
         _onRowSelected(_box, row) {
             if (!row) return;
