@@ -64,6 +64,30 @@ var LibraryPage = GObject.registerClass(
             sidebarHeader.pack_end(newButton);
             mainVbox.append(sidebarHeader);
 
+            const statusBox = new Gtk.Box({
+                orientation: Gtk.Orientation.HORIZONTAL,
+                halign: Gtk.Align.CENTER,
+                css_classes: ['pill-group'],
+                margin_top: 6,
+                margin_bottom: 6,
+            });
+
+            this.allButton = new Gtk.ToggleButton({ label: 'All', active: true });
+            this.toReadButton = new Gtk.ToggleButton({ label: 'To Read', group: this.allButton });
+            this.readingButton = new Gtk.ToggleButton({ label: 'Reading', group: this.allButton });
+            this.finishedButton = new Gtk.ToggleButton({ label: 'Finished', group: this.allButton });
+
+            statusBox.append(this.allButton);
+            statusBox.append(this.toReadButton);
+            statusBox.append(this.readingButton);
+            statusBox.append(this.finishedButton);
+            mainVbox.append(statusBox);
+
+            this.allButton.connect('toggled', this._onStatusFilterChanged.bind(this));
+            this.toReadButton.connect('toggled', this._onStatusFilterChanged.bind(this));
+            this.readingButton.connect('toggled', this._onStatusFilterChanged.bind(this));
+            this.finishedButton.connect('toggled', this._onStatusFilterChanged.bind(this));
+
             const scrolledWindow = new Gtk.ScrolledWindow({
                 hscrollbar_policy: Gtk.PolicyType.NEVER,
                 vexpand: true,
@@ -88,6 +112,12 @@ var LibraryPage = GObject.registerClass(
 
             // --- Populate List ---
             // Call the search function initially to get the full, unfiltered list.
+            this._onSearchChanged();
+        }
+
+
+        _onStatusFilterChanged() {
+            // A change in the status filter should trigger a new search
             this._onSearchChanged();
         }
 
@@ -131,15 +161,29 @@ var LibraryPage = GObject.registerClass(
             dialog.present();
         }
 
-        // ... _onSearchChanged, _onRowSelected, and other methods remain the same ...
+
         _onSearchChanged() {
             const query = this.searchBar.get_text();
+
+            // Determine the active status filter
+            let statusFilter = null;
+            if (this.toReadButton.get_active()) {
+                statusFilter = 'to-read';
+            } else if (this.readingButton.get_active()) {
+                statusFilter = 'reading';
+            } else if (this.finishedButton.get_active()) {
+                statusFilter = 'finished';
+            }
+            // If the "All" button is active, statusFilter remains null, which finds all items.
+
             const results = this.library.search({
                 query: query,
-                fields: ['title', 'abstract', 'personal_notes', 'authors']
+                fields: ['title', 'abstract', 'personal_notes', 'authors'],
+                status: statusFilter, // Add the status to the search criteria
             });
             this._populateList(results);
         }
+
 
         _onRowSelected(_box, row) {
             if (!row) return;
