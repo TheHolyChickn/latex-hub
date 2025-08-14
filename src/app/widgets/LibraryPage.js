@@ -111,6 +111,7 @@ var LibraryPage = GObject.registerClass(
                     status:         variantDict['status'].unpack(),
                     bibtex:         variantDict['bibtex'].unpack(),
                     web_link:       variantDict['web_link'].unpack(),
+                    arxiv_id:       variantDict['arxiv_id'].unpack(),
                 };
 
                 this.library.addEntry(newEntryData);

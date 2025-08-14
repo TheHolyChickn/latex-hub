@@ -6,6 +6,7 @@ const { GLib, Gio, Soup } = imports.gi;
 const ByteArray = imports.byteArray;
 
 const { ConfigManager } = imports.config.ConfigManager;
+const { ConfigUtils } = imports.config.ConfigUtils;
 const { LibraryItem } = imports.core.LibraryItem;
 const { generateBibtex } = imports.core.BibtexUtils;
 
@@ -308,11 +309,11 @@ var Library = class Library {
     downloadArxivPdf(itemId, callback) {
         const item = this.getEntryById(itemId);
         if (!item || item.source !== 'arxiv' || !item.arxiv_id) {
-            console.error("Item is not a valid arXiv entry. Cannot download PDF.");
+            console.error(`Item is not a valid arXiv entry. Cannot download PDF.`);
             return callback(false);
         }
 
-        const pdfDir = ConfigManager.get('pdf_download_dir');
+        const pdfDir = ConfigUtils.get('pdf_download_dir');
         if (!pdfDir) {
             console.error("PDF download directory is not configured.");
             return callback(false);
@@ -354,6 +355,58 @@ var Library = class Library {
             } catch (e) {
                 console.error(`Error saving PDF to ${localPath}: ${e.message}`);
                 callback(false);
+            }
+        });
+    }
+
+    /**
+     * Fetches and parses data from arXiv without saving it to the library.
+     * @param {string} arxivId - The arXiv identifier.
+     * @param {function(object|null)} callback - Function called with the parsed data object.
+     */
+    fetchArxivData(arxivId, callback) {
+        console.log(`Fetching data for arXiv:${arxivId}...`);
+        const encodedArxivId = encodeURIComponent(arxivId);
+        const uri = `http://export.arxiv.org/api/query?id_list=${encodedArxivId}`;
+        const message = Soup.Message.new('GET', uri);
+
+        _httpSession.queue_message(message, (session, msg) => {
+            if (msg.status_code !== 200) {
+                console.error(`arXiv API request failed. Status: ${msg.status_code}.`);
+                return callback(null);
+            }
+            if (!msg.response_body) {
+                console.error("arXiv API request succeeded but response body was empty.");
+                return callback(null);
+            }
+
+            try {
+                const responseBytes = msg.response_body.flatten().get_data();
+                const xmlString = ByteArray.toString(responseBytes);
+                const parsedData = _parseArxivXml(xmlString);
+
+                if (!parsedData) {
+                    console.error("Failed to parse XML response from arXiv.");
+                    return callback(null);
+                }
+
+                // Construct and return the full data object, but do not save
+                callback({
+                    id: `arxiv:${parsedData.arxivId}`,
+                    entry_type: "paper",
+                    source: "arxiv",
+                    title: parsedData.title,
+                    authors: parsedData.authors,
+                    date: parsedData.date,
+                    abstract: parsedData.abstract,
+                    arxiv_id: parsedData.arxivId,
+                    web_link: `https://arxiv.org/abs/${parsedData.arxivId}`,
+                    status: "to-read",
+                });
+
+            } catch(e) {
+                console.error(`Error processing arXiv response: ${e.message}`);
+                callback(null);
             }
         });
     }

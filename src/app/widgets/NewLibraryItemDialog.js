@@ -117,13 +117,14 @@ var NewLibraryItemDialog = GObject.registerClass(
             arxivButton.connect('clicked', this._onFetchArxiv.bind(this));
         }
 
-        // _onFetchArxiv and _onSubmit methods remain unchanged
         _onFetchArxiv() {
             const arxivId = this.arxivEntry.get_text().trim();
             if (!arxivId) return;
 
+            // Use the new fetch-only method
             this.library.fetchArxivData(arxivId, (data) => {
                 if (data) {
+                    // Store the fetched data locally and populate the fields
                     this.fetchedData = data;
                     this.titleEntry.set_text(data.title || '');
                     this.authorsEntry.set_text((data.authors || []).join(', '));
@@ -135,12 +136,13 @@ var NewLibraryItemDialog = GObject.registerClass(
                     this.bibtexLabel.set_text(bibtex);
                     this.fetchedData.bibtex = bibtex;
                 } else {
-                    this.fetchedData = null;
+                    this.fetchedData = null; // Clear on failure
                     console.error("Failed to fetch data from arXiv.");
                 }
             });
         }
 
+        // Replace the existing _onSubmit method with this:
         _onSubmit() {
             const title = this.titleEntry.get_text().trim();
             if (!title) {
@@ -153,6 +155,7 @@ var NewLibraryItemDialog = GObject.registerClass(
             const abstractBuffer = this.abstractView.get_buffer();
             const abstractText = abstractBuffer.get_text(abstractBuffer.get_start_iter(), abstractBuffer.get_end_iter(), true);
 
+            // Use the stored fetchedData as a base if it exists, otherwise create a manual entry
             const baseData = this.fetchedData || {
                 id: `manual:${title.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
                 source: 'manual',
@@ -160,11 +163,11 @@ var NewLibraryItemDialog = GObject.registerClass(
             };
 
             const entryTypeRaw = this.entryTypeSelector.get_selected_item()?.get_string() || 'Other';
-            const entryType = entryTypeRaw.toLowerCase().replace(' ', '-');
 
+            // Combine the base data with the current state of the UI fields
             const finalData = {
                 ...baseData,
-                entry_type: entryType,
+                entry_type: entryTypeRaw.toLowerCase().replace(' ', '-'),
                 title: title,
                 authors: this.authorsEntry.get_text().split(',').map(s => s.trim()).filter(Boolean),
                 date: { year: parseInt(this.yearEntry.get_text(), 10) || null },
@@ -178,6 +181,7 @@ var NewLibraryItemDialog = GObject.registerClass(
                 finalData.bibtex = generateBibtex(finalData);
             }
 
+            // The rest of this method (creating variantDict and emitting) is correct.
             const variantDict = {
                 id: new GLib.Variant('s', finalData.id),
                 entry_type: new GLib.Variant('s', finalData.entry_type),
@@ -192,6 +196,7 @@ var NewLibraryItemDialog = GObject.registerClass(
                 status: new GLib.Variant('s', finalData.status),
                 bibtex: new GLib.Variant('s', finalData.bibtex),
                 web_link: new GLib.Variant('s', finalData.web_link || ''),
+                arxiv_id: new GLib.Variant('s', finalData.arxiv_id || ''),
             };
 
             this.emit('submit', new GLib.Variant('a{sv}', variantDict));
