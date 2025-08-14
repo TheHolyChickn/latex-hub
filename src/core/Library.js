@@ -443,6 +443,70 @@ var Library = class Library {
             }
         });
     }
+
+    /**
+     * Creates a symmetric link between two library items.
+     * @param {string} sourceId - The ID of the first item.
+     * @param {string} targetId - The ID of the second item.
+     * @returns {boolean} True if the link was successfully created, false otherwise.
+     */
+    addRelatedEntry(sourceId, targetId) {
+        if (sourceId === targetId) return false; // An item cannot be related to itself.
+
+        const sourceItem = this.getEntryById(sourceId);
+        const targetItem = this.getEntryById(targetId);
+
+        if (!sourceItem || !targetItem) {
+            console.error("Could not create related entry link: one or both items not found.");
+            return false;
+        }
+
+        // Add target to source's relations (if not already present)
+        const sourceRelations = sourceItem.related_entries || [];
+        if (!sourceRelations.includes(targetId)) {
+            sourceItem.update({ related_entries: [...sourceRelations, targetId] });
+        }
+
+        // Add source to target's relations (if not already present)
+        const targetRelations = targetItem.related_entries || [];
+        if (!targetRelations.includes(sourceId)) {
+            targetItem.update({ related_entries: [...targetRelations, sourceId] });
+        }
+
+        this.save();
+        return true;
+    }
+
+    /**
+     * Removes a symmetric link between two library items.
+     * @param {string} sourceId - The ID of the first item.
+     * @param {string} targetId - The ID of the second item.
+     * @returns {boolean} True if the link was successfully removed, false otherwise.
+     */
+    removeRelatedEntry(sourceId, targetId) {
+        const sourceItem = this.getEntryById(sourceId);
+        const targetItem = this.getEntryById(targetId);
+
+        if (!sourceItem || !targetItem) {
+            console.error("Could not remove related entry link: one or both items not found.");
+            return false;
+        }
+
+        // Remove target from source's relations
+        const sourceRelations = sourceItem.related_entries || [];
+        if (sourceRelations.includes(targetId)) {
+            sourceItem.update({ related_entries: sourceRelations.filter(id => id !== targetId) });
+        }
+
+        // Remove source from target's relations
+        const targetRelations = targetItem.related_entries || [];
+        if (targetRelations.includes(sourceId)) {
+            targetItem.update({ related_entries: targetRelations.filter(id => id !== sourceId) });
+        }
+
+        this.save();
+        return true;
+    }
 };
 
 var exports = { Library };

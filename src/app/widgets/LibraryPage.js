@@ -273,6 +273,7 @@ var LibraryPage = GObject.registerClass(
                     vexpand: true,
                 });
 
+                // --- Button Box (Open PDF, Web Link, etc.) ---
                 const buttonBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, halign: Gtk.Align.CENTER, margin_bottom: 12 });
                 if (currentItem.web_link) {
                     const webButton = new Gtk.Button();
@@ -300,6 +301,7 @@ var LibraryPage = GObject.registerClass(
                 }
                 displayBox.append(buttonBox);
 
+                // --- Abstract & Notes Expanders ---
                 if (currentItem.abstract) {
                     const abstractRow = new Adw.ExpanderRow({ title: 'Abstract' });
                     abstractRow.add_row(new Gtk.Label({ label: currentItem.abstract, wrap: true, xalign: 0, css_classes: ['dim-label'], margin_start: 12, margin_end: 12, margin_top: 6, margin_bottom: 6 }));
@@ -311,6 +313,7 @@ var LibraryPage = GObject.registerClass(
                     displayBox.append(notesRow);
                 }
 
+                // --- Key Results Expander ---
                 if (currentItem.key_items && currentItem.key_items.length > 0) {
                     const keyItemsExpander = new Adw.ExpanderRow({ title: 'Key Results' });
 
@@ -364,6 +367,32 @@ var LibraryPage = GObject.registerClass(
                     });                    displayBox.append(keyItemsExpander);
                 }
 
+                // --- Related Entries ---
+                if (currentItem.related_entries && currentItem.related_entries.length > 0) {
+                    const relatedExpander = new Adw.ExpanderRow({ title: 'Related Entries' });
+                    const relatedListBox = new Gtk.ListBox({
+                        selection_mode: Gtk.SelectionMode.NONE,
+                        css_classes: ['boxed-list'],
+                    });
+                    relatedExpander.add_row(relatedListBox);
+
+                    currentItem.related_entries.forEach(relatedId => {
+                        const relatedItem = this.library.getEntryById(relatedId);
+                        if (relatedItem) {
+                            const row = new Adw.ActionRow({
+                                title: relatedItem.title,
+                                subtitle: (relatedItem.authors || []).join(', '),
+                                activatable: true,
+                            });
+                            row.connect('activated', () => {
+                                this.detailStack.set_visible_child_name(relatedItem.id);
+                            });
+                            relatedListBox.append(row);
+                        }
+                    });
+                    displayBox.append(relatedExpander);
+                }
+
                 const displayScrolled = new Gtk.ScrolledWindow({
                     hscrollbar_policy: Gtk.PolicyType.NEVER,
                     child: displayBox,
@@ -375,7 +404,7 @@ var LibraryPage = GObject.registerClass(
             let displayView = buildDisplayView(item);
             viewStack.add_named(displayView, 'display');
 
-            // --- Build the FINAL Edit View ---
+            // --- Build the Edit View ---
             const editGroup = new Adw.PreferencesGroup({
                 margin_top: 12, margin_bottom: 12, margin_start: 12, margin_end: 12,
             });
@@ -537,6 +566,92 @@ var LibraryPage = GObject.registerClass(
             keyResultsExpander.add_row(keyResultsBox);
             buildKeyResultsList(item); // Initial population
 
+            // --- Related Entries ---
+            const relatedEditExpander = new Adw.ExpanderRow({
+                title: 'Manage Related Entries'
+            });
+            editGroup.add(relatedEditExpander);
+
+            const relatedEditBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6 });
+            relatedEditExpander.add_row(relatedEditBox);
+
+            // Box for the search bar and results
+            const searchBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6 });
+            const searchEntry = new Gtk.SearchEntry({ placeholder_text: 'Search to link another entry...' });
+            const searchResultsBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6 });
+            const searchResultsScrolled = new Gtk.ScrolledWindow({
+                hscrollbar_policy: Gtk.PolicyType.NEVER,
+                min_content_height: 150,
+                child: searchResultsBox
+            });
+            searchBox.append(searchEntry);
+            searchBox.append(searchResultsScrolled);
+            relatedEditBox.append(searchBox);
+
+            // List to show currently linked items
+            const linkedItemsTitle = new Gtk.Label({ label: '<b>Currently Linked</b>', use_markup: true, xalign: 0, margin_top: 12 });
+            const linkedItemsList = new Gtk.ListBox({
+                selection_mode: Gtk.SelectionMode.NONE,
+                css_classes: ['boxed-list'],
+            });
+            relatedEditBox.append(linkedItemsTitle);
+            relatedEditBox.append(linkedItemsList);
+
+            // Function to populate the list of currently linked items
+            const buildLinkedItemsList = (currentItem) => {
+                linkedItemsList.remove_all();
+                (currentItem.related_entries || []).forEach(relatedId => {
+                    const relatedItem = this.library.getEntryById(relatedId);
+                    if (relatedItem) {
+                        const row = new Adw.ActionRow({
+                            title: relatedItem.title,
+                        });
+                        const removeButton = new Gtk.Button({ icon_name: 'edit-delete-symbolic' });
+                        removeButton.connect('clicked', () => {
+                            this.library.removeRelatedEntry(currentItem.id, relatedItem.id);
+                            // Refresh the list immediately
+                            const updatedItem = this.library.getEntryById(currentItem.id);
+                            buildLinkedItemsList(updatedItem);
+                        });
+                        row.add_suffix(removeButton);
+                        linkedItemsList.append(row);
+                    }
+                });
+            };
+
+            // Search logic
+            searchEntry.connect('search-changed', () => {
+                const query = searchEntry.get_text().toLowerCase();
+                let child = searchResultsBox.get_first_child();
+                while (child) {
+                    searchResultsBox.remove(child);
+                    child = searchResultsBox.get_first_child();
+                }
+                if (query.length > 2) {
+                    const results = this.library.search({ query, fields: ['title'] });
+                    results.forEach(resultItem => {
+                        // Don't show the item itself or already linked items in search results
+                        if (resultItem.id !== item.id && !(item.related_entries || []).includes(resultItem.id)) {
+                            const row = new Adw.ActionRow({
+                                title: resultItem.title,
+                                subtitle: (resultItem.authors || []).join(', ')
+                            });
+                            const addButton = new Gtk.Button({ icon_name: 'list-add-symbolic' });
+                            addButton.connect('clicked', () => {
+                                this.library.addRelatedEntry(item.id, resultItem.id);
+                                searchEntry.set_text(''); // Clear search
+                                const updatedItem = this.library.getEntryById(item.id);
+                                buildLinkedItemsList(updatedItem); // Refresh list
+                            });
+                            row.add_suffix(addButton);
+                            searchResultsBox.append(row);
+                        }
+                    });
+                }
+            });
+
+            buildLinkedItemsList(item); // Initial population of the linked items list
+
             const editScrolled = new Gtk.ScrolledWindow({
                 hscrollbar_policy: Gtk.PolicyType.NEVER,
                 child: editGroup,
@@ -561,7 +676,10 @@ var LibraryPage = GObject.registerClass(
                 header.pack_end(saveButton);
                 viewStack.set_visible_child_name('edit');
             });
-            cancelButton.connect('clicked', switchToDisplayMode);
+            cancelButton.connect('clicked', () => {
+                buildLinkedItemsList(this.library.getEntryById(item.id));
+                switchToDisplayMode();
+            });
 
             saveButton.connect('clicked', () => {
                 const notesBuffer = notesView.get_buffer();
@@ -571,6 +689,7 @@ var LibraryPage = GObject.registerClass(
                 const statusRaw = statusSelector.get_selected_item()?.get_string() || 'To Read';
                 const entryTypeRaw = entryTypeSelector.get_selected_item()?.get_string() || 'Other';
 
+                // This is the complete object that replaces the placeholder comment
                 const updatedItem = this.library.updateEntry(item.id, {
                     entry_type: entryTypeRaw.toLowerCase().replace(' ', '-'),
                     title: titleEntry.get_text(),
@@ -591,10 +710,11 @@ var LibraryPage = GObject.registerClass(
                 });
 
                 if (updatedItem) {
+                    // Rebuild the display view with ALL updated data
                     const newDisplayView = buildDisplayView(updatedItem);
                     viewStack.remove(displayView);
                     viewStack.add_named(newDisplayView, 'display');
-                    displayView = newDisplayView;
+                    displayView = newDisplayView; // Update the reference
                     header.get_title_widget().set_title(updatedItem.title);
                     header.get_title_widget().set_subtitle(`${updatedItem.date.year} - ${updatedItem.authors[0] || ''}`);
                     this._onSearchChanged();
