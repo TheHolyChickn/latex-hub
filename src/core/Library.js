@@ -223,6 +223,7 @@ var Library = class Library {
         if (itemToUpdate) {
             itemToUpdate.update(updates);
 
+            // Regenerate the BibTeX entry in case core fields changed
             const newBibtex = generateBibtex(itemToUpdate._data);
             itemToUpdate.update({ bibtex: newBibtex });
 

@@ -4,7 +4,7 @@
 
 imports.gi.versions.Gtk = '4.0';
 imports.gi.versions.Adw = '1';
-const { GObject, Gtk, Adw, Gdk } = imports.gi;
+const { GObject, Gtk, Adw, Gdk, Pango } = imports.gi;
 
 const { Library } = imports.core.Library;
 // 1. Import the new dialog
@@ -186,10 +186,7 @@ var LibraryPage = GObject.registerClass(
             mainDetailBox.append(header);
             mainDetailBox.append(viewStack);
 
-            // This function builds the read-only display view
             const buildDisplayView = (currentItem) => {
-                // This function's content is correct and remains unchanged.
-                // It builds the view with buttons and non-editable labels.
                 const displayBox = new Gtk.Box({
                     orientation: Gtk.Orientation.VERTICAL,
                     spacing: 12,
@@ -246,27 +243,88 @@ var LibraryPage = GObject.registerClass(
             let displayView = buildDisplayView(item);
             viewStack.add_named(displayView, 'display');
 
-            // --- Build the COMPLETE Edit View ---
+            // --- Build the FINAL Edit View ---
             const editGroup = new Adw.PreferencesGroup({
                 margin_top: 12, margin_bottom: 12, margin_start: 12, margin_end: 12,
             });
 
-            const titleEntry = new Gtk.Entry({ text: item.title });
+            const entryTypeStrings = ['Paper', 'Book', 'Article', 'Lecture Notes', 'Other'];
+            const entryTypeSelector = Gtk.DropDown.new_from_strings(entryTypeStrings);
+            const currentTypeIndex = entryTypeStrings.findIndex(s => s.toLowerCase().replace(' ', '-') === item.entry_type);
+            if (currentTypeIndex !== -1) entryTypeSelector.set_selected(currentTypeIndex);
+            editGroup.add(new Adw.ActionRow({ title: 'Entry Type', child: entryTypeSelector }));
+
+            const titleEntry = new Gtk.Entry({ text: (item.title || '').toString(), placeholder_text: 'Title' });
             editGroup.add(new Adw.ActionRow({ title: 'Title', child: titleEntry }));
 
-            const authorsEntry = new Gtk.Entry({ text: (item.authors || []).join(', ') });
+            const authorsEntry = new Gtk.Entry({ text: (item.authors || []).join(', '), placeholder_text: 'Authors (separate with a comma)' });
             editGroup.add(new Adw.ActionRow({ title: 'Authors', subtitle: 'Comma-separated', child: authorsEntry }));
 
-            const yearEntry = new Gtk.Entry({ text: (item.date.year || '').toString() });
-            editGroup.add(new Adw.ActionRow({ title: 'Year', child: yearEntry }));
+            const statusStrings = ['To Read', 'Reading', 'Finished'];
+            const statusSelector = Gtk.DropDown.new_from_strings(statusStrings);
+            const currentStatusIndex = statusStrings.findIndex(s => s.toLowerCase().replace(' ', '-') === item.status);
+            if (currentStatusIndex !== -1) statusSelector.set_selected(currentStatusIndex);
+            editGroup.add(new Adw.ActionRow({ title: 'Status', child: statusSelector }));
 
-            const tagsEntry = new Gtk.Entry({ text: (item.tags || []).join(', ') });
+            const dateBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6 });
+            const yearEntry = new Gtk.Entry({ text: (item.date.year || '').toString(), placeholder_text: 'YYYY' });
+            const monthEntry = new Gtk.Entry({ text: (item.date.month || '').toString(), placeholder_text: 'MM' });
+            const dayEntry = new Gtk.Entry({ text: (item.date.day || '').toString(), placeholder_text: 'DD' });
+            dateBox.append(yearEntry);
+            dateBox.append(monthEntry);
+            dateBox.append(dayEntry);
+            editGroup.add(new Adw.ActionRow({ title: 'Date', child: dateBox }));
+
+            const pubEntry = new Gtk.Entry({ text: (item.publication_info || '').toString(), placeholder_text: 'Publication Info' });
+            editGroup.add(new Adw.ActionRow({ title: 'Publication Info', child: pubEntry }));
+
+            const webLinkEntry = new Gtk.Entry({ text: (item.web_link || '').toString(), placeholder_text: 'Web Link' });
+            editGroup.add(new Adw.ActionRow({ title: 'Web Link', child: webLinkEntry }));
+
+            // --- FIX: Replace Gtk.FileChooserButton ---
+            const fileChooserBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6 });
+            const fileChooserLabel = new Gtk.Label({ label: item.local_path || 'None', xalign: 0, ellipsize: Pango.EllipsizeMode.MIDDLE, hexpand: true });
+            const fileChooserButton = new Gtk.Button({ icon_name: 'folder-open-symbolic' });
+            fileChooserBox.append(fileChooserLabel);
+            fileChooserBox.append(fileChooserButton);
+            // We store the chosen file path in a temporary variable
+            let chosenFilePath = item.local_path || null;
+            fileChooserButton.connect('clicked', () => {
+                const dialog = new Gtk.FileChooserDialog({
+                    title: 'Select PDF',
+                    transient_for: this.get_root(),
+                    action: Gtk.FileChooserAction.OPEN,
+                });
+                dialog.add_button('Cancel', Gtk.ResponseType.CANCEL);
+                dialog.add_button('Open', Gtk.ResponseType.ACCEPT);
+                dialog.connect('response', (_source, response_id) => {
+                    if (response_id === Gtk.ResponseType.ACCEPT) {
+                        const file = dialog.get_file();
+                        chosenFilePath = file.get_path();
+                        fileChooserLabel.set_label(chosenFilePath);
+                    }
+                    dialog.destroy();
+                });
+                dialog.present();
+            });
+            editGroup.add(new Adw.ActionRow({ title: 'PDF File Path', child: fileChooserBox }));
+            // --- END FIX ---
+
+            const bibtexKeyEntry = new Gtk.Entry({ text: (item.bibtex_key || '').toString(), placeholder_text: 'Bibtex Key' });
+            editGroup.add(new Adw.ActionRow({ title: 'BibTeX Key', subtitle: 'Leave blank to auto-generate', child: bibtexKeyEntry }));
+
+            const tagsEntry = new Gtk.Entry({ text: (item.tags || []).join(', '), placeholder_text: 'Tags (separate with a comma)' });
             editGroup.add(new Adw.ActionRow({ title: 'Tags', subtitle: 'Comma-separated', child: tagsEntry }));
+
+            const abstractView = new Gtk.TextView({ vexpand: true, wrap_mode: Gtk.WrapMode.WORD_CHAR });
+            abstractView.get_buffer().set_text(item.abstract || '', -1);
+            const abstractScrolled = new Gtk.ScrolledWindow({ child: abstractView, min_content_height: 150 });
+            const abstractExpander = new Adw.ExpanderRow({ title: 'Abstract', child: abstractScrolled });
+            editGroup.add(abstractExpander);
 
             const notesView = new Gtk.TextView({ vexpand: true, wrap_mode: Gtk.WrapMode.WORD_CHAR });
             notesView.get_buffer().set_text(item.personal_notes || '', -1);
-            const notesScrolled = new Gtk.ScrolledWindow({ child: notesView, min_content_height: 200 });
-            // FIX: Place the notes editor inside an expander row for consistency
+            const notesScrolled = new Gtk.ScrolledWindow({ child: notesView, min_content_height: 150 });
             const notesExpander = new Adw.ExpanderRow({ title: 'Personal Notes', child: notesScrolled });
             editGroup.add(notesExpander);
 
@@ -280,7 +338,6 @@ var LibraryPage = GObject.registerClass(
             const editButton = new Gtk.Button({ icon_name: 'document-edit-symbolic' });
             const saveButton = new Gtk.Button({ label: 'Save', css_classes: ['suggested-action'] });
             const cancelButton = new Gtk.Button({ label: 'Cancel' });
-
             header.pack_end(editButton);
 
             const switchToDisplayMode = () => {
@@ -289,41 +346,48 @@ var LibraryPage = GObject.registerClass(
                 header.pack_end(editButton);
                 viewStack.set_visible_child_name('display');
             };
-
             editButton.connect('clicked', () => {
                 header.remove(editButton);
                 header.pack_start(cancelButton);
                 header.pack_end(saveButton);
                 viewStack.set_visible_child_name('edit');
             });
-
             cancelButton.connect('clicked', switchToDisplayMode);
 
-            // FIX: Implement the full save logic
             saveButton.connect('clicked', () => {
                 const notesBuffer = notesView.get_buffer();
                 const newNotes = notesBuffer.get_text(notesBuffer.get_start_iter(), notesBuffer.get_end_iter(), true);
+                const abstractBuffer = abstractView.get_buffer();
+                const newAbstract = abstractBuffer.get_text(abstractBuffer.get_start_iter(), abstractBuffer.get_end_iter(), true);
+                const statusRaw = statusSelector.get_selected_item()?.get_string() || 'To Read';
+                const entryTypeRaw = entryTypeSelector.get_selected_item()?.get_string() || 'Other';
 
                 const updatedItem = this.library.updateEntry(item.id, {
+                    entry_type: entryTypeRaw.toLowerCase().replace(' ', '-'),
                     title: titleEntry.get_text(),
                     authors: authorsEntry.get_text().split(',').map(s => s.trim()).filter(Boolean),
-                    date: { year: parseInt(yearEntry.get_text()) || item.date.year },
+                    status: statusRaw.toLowerCase().replace(' ', '-'),
+                    date: {
+                        year: parseInt(yearEntry.get_text()) || null,
+                        month: parseInt(monthEntry.get_text()) || null,
+                        day: parseInt(dayEntry.get_text()) || null
+                    },
+                    publication_info: pubEntry.get_text(),
+                    web_link: webLinkEntry.get_text() || null,
+                    local_path: chosenFilePath,
+                    bibtex_key: bibtexKeyEntry.get_text() || null,
+                    abstract: newAbstract,
                     personal_notes: newNotes,
                     tags: tagsEntry.get_text().split(',').map(s => s.trim()).filter(Boolean)
                 });
 
                 if (updatedItem) {
-                    // Re-build the display view with the fresh data
                     const newDisplayView = buildDisplayView(updatedItem);
-                    viewStack.remove(displayView); // Remove the old, stale view
-                    viewStack.add_named(newDisplayView, 'display'); // Add the new one
-                    displayView = newDisplayView; // Update our reference to the current view
-
-                    // Update the header bar title and subtitle
+                    viewStack.remove(displayView);
+                    viewStack.add_named(newDisplayView, 'display');
+                    displayView = newDisplayView;
                     header.get_title_widget().set_title(updatedItem.title);
                     header.get_title_widget().set_subtitle(`${updatedItem.date.year} - ${updatedItem.authors[0] || ''}`);
-
-                    // Refresh the main list in the sidebar to reflect the changes
                     this._onSearchChanged();
                 }
 
