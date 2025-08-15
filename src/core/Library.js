@@ -196,54 +196,47 @@ var Library = class Library {
     search(filters = {}) {
         const { query, fields, tags, status, searchKeyResults } = filters;
         const lowerCaseQuery = query ? query.toLowerCase() : null;
+        const lowerCaseFilterTags = tags ? tags.map(t => t.toLowerCase()) : [];
 
         return this.entries.filter(entry => {
-            // Filter by status (unchanged)
-            if (status && entry.status !== status) {
-                return false;
+            // --- Establish a "pass" status for each filter type ---
+            let statusPass = !status || entry.status === status;
+
+            let tagsPass = lowerCaseFilterTags.length === 0;
+            if (!tagsPass) {
+                const entryTags = (entry.tags || []).map(t => t.toLowerCase());
+                tagsPass = lowerCaseFilterTags.every(filterTag => entryTags.includes(filterTag));
             }
 
-            // Filter by tags (unchanged)
-            if (tags && tags.length > 0) {
-                const hasAllTags = tags.every(tag => (entry.tags || []).includes(tag));
-                if (!hasAllTags) {
-                    return false;
+            let queryPass = !lowerCaseQuery;
+            if (!queryPass) {
+                let textMatch = false;
+                // Main field search
+                if (fields && fields.length > 0) {
+                    textMatch = fields.some(field => {
+                        const fieldValue = entry[field];
+                        if (Array.isArray(fieldValue)) {
+                            return fieldValue.join(', ').toLowerCase().includes(lowerCaseQuery);
+                        }
+                        return fieldValue && typeof fieldValue === 'string' && fieldValue.toLowerCase().includes(lowerCaseQuery);
+                    });
                 }
+                // Key results search
+                if (!textMatch && searchKeyResults && entry.key_items && entry.key_items.length > 0) {
+                    textMatch = entry.key_items.some(keyItem => {
+                        const titleMatch = keyItem.title && keyItem.title.toLowerCase().includes(lowerCaseQuery);
+                        const keyItemTagsMatch = keyItem.tags && keyItem.tags.some(tag => tag.toLowerCase().includes(lowerCaseQuery));
+                        return titleMatch || keyItemTagsMatch;
+                    });
+                }
+                queryPass = textMatch;
             }
 
-            // If there's no text query, the item passes the text search part
-            if (!lowerCaseQuery) {
-                return true;
-            }
-
-            // --- Main Text Search Logic ---
-            let textMatch = false;
-
-            // Search in the main entry fields (title, abstract, etc.)
-            if (fields && fields.length > 0) {
-                textMatch = fields.some(field => {
-                    const fieldValue = entry[field];
-                    return fieldValue && typeof fieldValue === 'string' && fieldValue.toLowerCase().includes(lowerCaseQuery);
-                });
-            }
-
-            // If we have a match already, we can skip the key results search
-            if (textMatch) {
-                return true;
-            }
-
-            // If specified, also search in the key results
-            if (searchKeyResults && entry.key_items && entry.key_items.length > 0) {
-                textMatch = entry.key_items.some(keyItem => {
-                    const titleMatch = keyItem.title && keyItem.title.toLowerCase().includes(lowerCaseQuery);
-                    const tagsMatch = keyItem.tags && keyItem.tags.some(tag => tag.toLowerCase().includes(lowerCaseQuery));
-                    return titleMatch || tagsMatch;
-                });
-            }
-
-            return textMatch;
+            // The entry is only included if it passes ALL active filters.
+            return statusPass && tagsPass && queryPass;
         });
     }
+
 
     /**
      * Updates an existing entry with new data and saves the library.
@@ -392,55 +385,57 @@ var Library = class Library {
         });
     }
 
+// In src/core/Library.js
+
     /**
-     * Fetches and parses data from arXiv without saving it to the library.
+     * Fetches and parses data from arXiv. Returns a Promise.
      * @param {string} arxivId - The arXiv identifier.
-     * @param {function(object|null)} callback - Function called with the parsed data object.
+     * @returns {Promise<object|null>} A promise that resolves with the parsed data object.
+     * @private
      */
-    fetchArxivData(arxivId, callback) {
+    _fetchArxivDataAsync(arxivId) {
         console.log(`Fetching data for arXiv:${arxivId}...`);
-        const encodedArxivId = encodeURIComponent(arxivId);
-        const uri = `http://export.arxiv.org/api/query?id_list=${encodedArxivId}`;
-        const message = Soup.Message.new('GET', uri);
+        return new Promise((resolve, reject) => {
+            const encodedArxivId = encodeURIComponent(arxivId);
+            const uri = `http://export.arxiv.org/api/query?id_list=${encodedArxivId}`;
+            const message = Soup.Message.new('GET', uri);
 
-        _httpSession.queue_message(message, (session, msg) => {
-            if (msg.status_code !== 200) {
-                console.error(`arXiv API request failed. Status: ${msg.status_code}.`);
-                return callback(null);
-            }
-            if (!msg.response_body) {
-                console.error("arXiv API request succeeded but response body was empty.");
-                return callback(null);
-            }
-
-            try {
-                const responseBytes = msg.response_body.flatten().get_data();
-                const xmlString = ByteArray.toString(responseBytes);
-                const parsedData = _parseArxivXml(xmlString);
-
-                if (!parsedData) {
-                    console.error("Failed to parse XML response from arXiv.");
-                    return callback(null);
+            _httpSession.queue_message(message, (session, msg) => {
+                if (msg.status_code !== 200) {
+                    return reject(new Error(`arXiv API request failed. Status: ${msg.status_code}.`));
+                }
+                if (!msg.response_body) {
+                    return reject(new Error("arXiv API request succeeded but response body was empty."));
                 }
 
-                // Construct and return the full data object, but do not save
-                callback({
-                    id: `arxiv:${parsedData.arxivId}`,
-                    entry_type: "paper",
-                    source: "arxiv",
-                    title: parsedData.title,
-                    authors: parsedData.authors,
-                    date: parsedData.date,
-                    abstract: parsedData.abstract,
-                    arxiv_id: parsedData.arxivId,
-                    web_link: `https://arxiv.org/abs/${parsedData.arxivId}`,
-                    status: "to-read",
-                });
+                try {
+                    const responseBytes = msg.response_body.flatten().get_data();
+                    const xmlString = ByteArray.toString(responseBytes);
+                    const parsedData = _parseArxivXml(xmlString);
 
-            } catch(e) {
-                console.error(`Error processing arXiv response: ${e.message}`);
-                callback(null);
-            }
+                    if (!parsedData) {
+                        return reject(new Error("Failed to parse XML response from arXiv."));
+                    }
+
+                    // --- THIS IS THE CORRECTED PART ---
+                    // Construct the full object with all required fields.
+                    resolve({
+                        id: `arxiv:${parsedData.arxivId}`,
+                        entry_type: "paper",
+                        source: "arxiv",
+                        title: parsedData.title,
+                        authors: parsedData.authors,
+                        date: parsedData.date,
+                        abstract: parsedData.abstract,
+                        arxiv_id: parsedData.arxivId,
+                        web_link: `https://arxiv.org/abs/${parsedData.arxivId}`,
+                        status: "to-read",
+                    });
+
+                } catch(e) {
+                    reject(new Error(`Error processing arXiv response: ${e.message}`));
+                }
+            });
         });
     }
 
@@ -506,6 +501,110 @@ var Library = class Library {
 
         this.save();
         return true;
+    }
+
+    /**
+     * Calculates various statistics about the library's contents.
+     * @returns {object} An object containing the calculated statistics.
+     */
+    getStatistics() {
+        const totalEntries = this.entries.length;
+        if (totalEntries === 0) {
+            return {
+                totalEntries: 0,
+                entriesByType: {},
+                totalUniqueTags: 0,
+                topTags: [],
+                totalKeyItems: 0,
+                mostReferencedEntry: null,
+            };
+        }
+
+        const entriesByType = {};
+        const tagFrequency = new Map();
+        const relatedEntryFrequency = new Map();
+        let totalKeyItems = 0;
+
+        this.entries.forEach(entry => {
+            // Count entries by type
+            const entryType = entry.entry_type || 'uncategorized';
+            entriesByType[entryType] = (entriesByType[entryType] || 0) + 1;
+
+            // Tally tag frequencies
+            (entry.tags || []).forEach(tag => {
+                const lowerCaseTag = tag.toLowerCase();
+                tagFrequency.set(lowerCaseTag, (tagFrequency.get(lowerCaseTag) || 0) + 1);
+            });
+
+            // Tally related entry frequencies
+            (entry.related_entries || []).forEach(relatedId => {
+                relatedEntryFrequency.set(relatedId, (relatedEntryFrequency.get(relatedId) || 0) + 1);
+            });
+
+            // Sum key items
+            totalKeyItems += (entry.key_items || []).length;
+        });
+
+        // Determine top 5 tags
+        const sortedTags = [...tagFrequency.entries()].sort((a, b) => b[1] - a[1]);
+        const topTags = sortedTags.slice(0, 5).map(entry => ({ tag: entry[0], count: entry[1] }));
+
+        // Determine the most referenced entry
+        let mostReferencedEntry = null;
+        if (relatedEntryFrequency.size > 0) {
+            const sortedRelated = [...relatedEntryFrequency.entries()].sort((a, b) => b[1] - a[1]);
+            const mostReferencedId = sortedRelated[0][0];
+            const entry = this.getEntryById(mostReferencedId);
+            if (entry) {
+                mostReferencedEntry = {
+                    title: entry.title,
+                    id: entry.id,
+                    count: sortedRelated[0][1],
+                };
+            }
+        }
+
+        return {
+            totalEntries,
+            entriesByType,
+            totalUniqueTags: tagFrequency.size,
+            topTags,
+            totalKeyItems,
+            mostReferencedEntry,
+        };
+    }
+
+    // Add this new method inside the Library class in src/core/Library.js
+
+    /**
+     * Fetches data from arXiv and adds it as a new entry. Designed for CLI usage.
+     * @param {string} arxivId - The arXiv identifier.
+     * @param {boolean} downloadPdf - Whether to also download the PDF.
+     * @returns {Promise<LibraryItem|null>} A promise that resolves with the new item or null on failure.
+     */
+    async addEntryFromArxivCLI(arxivId, downloadPdf = false) {
+        try {
+            const newItemData = await this._fetchArxivDataAsync(arxivId); // <--- Use the renamed async method
+            const newItem = this.addEntry(newItemData);
+
+            if (newItem && downloadPdf) {
+                console.log(`Downloading PDF for ${newItem.title}...`);
+                const downloadPromise = new Promise((resolve) => {
+                    this.downloadArxivPdf(newItem.id, (success) => {
+                        resolve(success);
+                    });
+                });
+                const success = await downloadPromise;
+                if (!success) {
+                    console.warn(`Warning: Entry was added, but PDF download failed.`);
+                }
+            }
+            return newItem;
+
+        } catch (e) {
+            console.error(e.message);
+            return null;
+        }
     }
 };
 

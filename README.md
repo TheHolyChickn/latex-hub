@@ -1,4 +1,5 @@
 # LaTeX Hub
+
 An app for managing university course files and LaTeX heavy projects. Comes with a GUI solution, written using gjs and GTK widgets; and a CLI solution
 for integration into hotkey daemons (as paired with WMs) for quick access to rofi menus, and the like.
 

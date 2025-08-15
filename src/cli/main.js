@@ -4,7 +4,8 @@
 
 imports.gi.versions.GLib = '2.0';
 imports.gi.versions.Gio = '2.0';
-const { GLib, Gio } = imports.gi;
+imports.gi.versions.GioUnix = '2.0';
+const { GLib, Gio, GioUnix } = imports.gi;
 const System = imports.system;
 
 function getSelfPath() {
@@ -28,6 +29,7 @@ imports.searchPath.unshift(GLib.build_filenamev([projectRoot, 'src']));
 // Corrected import path
 const RofiManager = imports.core.RofiManager;
 const { Courses } = imports.core.Courses;
+const { Library } = imports.core.Library;
 
 // ... (The rest of the file: openPdf, openDir, printHelp, main switch statement)
 // ... (No changes needed in the logic of these functions)
@@ -90,13 +92,73 @@ Commands:
 }
 
 
-function main() {
-    if (ARGV.length < 1) {
+async function handleNativeMessage() {
+    const stdin = new Gio.DataInputStream({
+        base_stream: new GioUnix.InputStream({ fd: 0 })
+    });
+
+    // Read the 4-byte length header from the browser
+    const lengthBytes = stdin.read_bytes(4, null);
+    const u8Array = lengthBytes.get_data();
+
+    // Use the standard JavaScript DataView on the underlying ArrayBuffer
+    const dataView = new DataView(u8Array.buffer);
+    const length = dataView.getUint32(0, true); // true for little-endian
+
+    // Read the message content itself
+    const messageBytes = stdin.read_bytes(length, null);
+    const messageStr = imports.byteArray.toString(messageBytes.get_data());
+    const message = JSON.parse(messageStr);
+
+    // Now, act on the parsed message
+    if (message.command === 'add' && message.arxivId) {
+        const library = new Library();
+        // Send a response back to the extension
+        const newItem = await library.addEntryFromArxivCLI(message.arxivId, message.downloadPdf);
+        const response = { success: !!newItem, title: newItem ? newItem.title : null };
+
+        // The browser expects a response in the same length-prefixed format
+        const responseStr = JSON.stringify(response);
+        const responseBytesOut = imports.byteArray.fromString(responseStr);
+        const responseLength = new Uint8Array(4);
+        new DataView(responseLength.buffer).setUint32(0, responseBytesOut.length, true);
+
+        // Write the length and then the message to standard output
+        const stdout = new GioUnix.OutputStream({ fd: 1 });
+        stdout.write_all(responseLength, null);
+        stdout.write_all(responseBytesOut, null);
+    }
+}
+
+
+async function main() {
+    if (ARGV.length === 0) {
         printHelp();
         return;
     }
 
+    // Check if being run by browser (no arguments will be passed in this case)
+    // note: normally running with len 0 should printHelp(). will need a second special check later
+    const knownCommands = ['courses', 'lectures', 'homework', 'view', 'library', 'pdf', 'dir', 'help']
     const command = ARGV[0];
+    const isNativeMessageCall = !knownCommands.includes(command);
+
+    if (isNativeMessageCall) {
+        await handleNativeMessage();
+        return;
+    }
+
+    // Argument parsing logic for more complex commands
+    const args = {};
+    for (let i = 1; i < ARGV.length; i++) {
+        const arg = ARGV[i];
+        if (arg.startsWith('--')) {
+            const [key, value] = arg.substring(2).split('=');
+            args[key] = value === undefined ? true : value;
+        } else {
+            args[`arg${i}`] = arg;
+        }
+    }
 
     switch (command) {
         case 'courses':
@@ -111,6 +173,22 @@ function main() {
         case 'view':
             RofiManager.selectLectureView();
             break;
+        case 'library':
+            const subCommand = args.arg1;
+            if (subCommand === 'add' && args.arxiv) {
+                const library = new Library();
+                const newItem = await library.addEntryFromArxivCLI(args.arxiv, args['download-pdf']);
+                if (newItem) {
+                    print(`Successfully added: "${newItem.title}"`);
+                } else {
+                    print(`Failed to add entry for arXiv:${args.arxiv}`);
+                }
+            } else if (subCommand === 'open' || subCommand === 'cite') {
+                RofiManager.manageLibrary(subCommand);
+            } else {
+                print("Usage: latex-hub library [open|cite|add] --arxiv=<id> [--download-pdf]");
+            }
+            break;
         case 'pdf':
             openPdf();
             break;
@@ -124,4 +202,10 @@ function main() {
     }
 }
 
-main();
+const loop = new GLib.MainLoop(null, false);
+
+main().catch(logError).finally(() => {
+    loop.quit();
+});
+
+loop.run();

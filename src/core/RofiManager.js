@@ -4,6 +4,8 @@ const { rofi } = imports.core.Rofi;
 const { generateShortTitle, MAX_LEN } = imports.core.RofiUtils;
 const { Courses } = imports.core.Courses;
 const { Homeworks } = imports.core.Homeworks;
+const { Library } = imports.core.Library;
+const { GLib } = imports.gi;
 
 // course management
 
@@ -146,9 +148,66 @@ function manageHomework() {
     }
 }
 
+function _selectLibraryEntry(prompt) {
+    const library = new Library();
+    if (library.entries.length === 0) {
+        rofi('Library', ['No entries found.'], ['-l', '1']);
+        return null;
+    }
+
+    const options = library.entries.map(entry => {
+        const title = generateShortTitle(entry.title);
+        const author = (entry.authors[0] || 'Unknown Author').split(' ').pop();
+        const year = entry.date.year || 'N/A';
+        return `<b>${title}</b> <span size='smaller'>(${author}, ${year})</span>`;
+    });
+
+    const rofiArgs = ['-l', '10', '-markup-rows'];
+    const { key, index } = rofi(prompt, options, rofiArgs);
+
+    if (key === 0 && index !== -1) {
+        return library.entries[index];
+    }
+    return null;
+}
+
+function manageLibrary(mode) {
+    switch (mode) {
+        case 'open': {
+            const selectedEntry = _selectLibraryEntry('Open PDF');
+            if (selectedEntry && selectedEntry.local_path) {
+                try {
+                    // Using xdg-open for better desktop environment compatibility
+                    GLib.spawn_async(null, ["xdg-open", selectedEntry.local_path], null, GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.DO_NOT_REAP_CHILD, null);
+                } catch (e) {
+                    console.error(`Failed to open PDF: ${e.message}`);
+                }
+            } else if (selectedEntry) {
+                console.error(`Error: No local PDF path found for entry "${selectedEntry.title}".`);
+            }
+            break;
+        }
+        case 'cite': {
+            const selectedEntry = _selectLibraryEntry('Copy BibTeX Citation');
+            if (selectedEntry && selectedEntry.bibtex) {
+                // Print the bibtex citation to standard output
+                print(selectedEntry.bibtex);
+            } else if (selectedEntry) {
+                console.error(`Error: No BibTeX data found for entry "${selectedEntry.title}".`);
+            }
+            break;
+        }
+        default:
+            print("Usage: latex-hub library [open|cite]");
+            break;
+    }
+}
+
+
 var exports = {
     selectCourse,
     selectLecture,
     selectLectureView,
-    manageHomework
+    manageHomework,
+    manageLibrary
 };

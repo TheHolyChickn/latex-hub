@@ -54,7 +54,7 @@ var LibraryPage = GObject.registerClass(
             const sidebarHeader = new Adw.HeaderBar({
                 css_classes: ['flat'],
             });
-// This is the button that will toggle the search mode
+
             this.searchModeButton = new Gtk.ToggleButton({
                 icon_name: 'find-location-symbolic', // An icon suggesting a deeper search
                 tooltip_text: 'Toggle between searching the library and searching key results'
@@ -73,29 +73,84 @@ var LibraryPage = GObject.registerClass(
             sidebarHeader.pack_end(newButton);
             mainVbox.append(sidebarHeader);
 
-            const statusBox = new Gtk.Box({
+            // Create the popover that will hold our filter widgets
+            const filterPopover = new Gtk.Popover();
+
+            const popoverBox = new Gtk.Box({
+                orientation: Gtk.Orientation.VERTICAL,
+                spacing: 6,
+                margin_top: 12, margin_bottom: 12, margin_start: 12, margin_end: 12,
+            });
+            filterPopover.set_child(popoverBox);
+
+            // --- Define Filter Widgets Here ---
+            // Tag Filter
+            popoverBox.append(new Gtk.Label({ label: '<b>Tags</b>', use_markup: true, xalign: 0 }));
+
+            // Tag Filter
+            popoverBox.append(new Gtk.Label({ label: '<b>Tags</b>', use_markup: true, xalign: 0 }));
+            this.tagsEntry = new Gtk.Entry({
+                placeholder_text: 'e.g., math, physics',
+                margin_bottom: 6, // Add some space above the buttons
+            });
+            popoverBox.append(this.tagsEntry);
+
+            // --- NEW: Add action buttons to the popover ---
+            const actionBox = new Gtk.Box({
                 orientation: Gtk.Orientation.HORIZONTAL,
-                halign: Gtk.Align.CENTER,
-                css_classes: ['pill-group'],
-                margin_top: 6,
-                margin_bottom: 6,
+                spacing: 6,
+                halign: Gtk.Align.END,
+            });
+            popoverBox.append(actionBox);
+
+            const cancelButton = new Gtk.Button({ label: 'Cancel' });
+            const applyFilterButton = new Gtk.Button({
+                label: 'Filter',
+                css_classes: ['suggested-action'],
             });
 
-            this.allButton = new Gtk.ToggleButton({ label: 'All', active: true });
-            this.toReadButton = new Gtk.ToggleButton({ label: 'To Read', group: this.allButton });
-            this.readingButton = new Gtk.ToggleButton({ label: 'Reading', group: this.allButton });
-            this.finishedButton = new Gtk.ToggleButton({ label: 'Finished', group: this.allButton });
+            actionBox.append(cancelButton);
+            actionBox.append(applyFilterButton);
 
-            statusBox.append(this.allButton);
-            statusBox.append(this.toReadButton);
-            statusBox.append(this.readingButton);
-            statusBox.append(this.finishedButton);
-            mainVbox.append(statusBox);
+            // --- Connect the new signals ---
+            // Pressing Enter in the entry triggers a search
+            this.tagsEntry.connect('activate', () => {
+                this._onSearchChanged();
+                filterPopover.popdown(); // Close popover on filter
+            });
 
-            this.allButton.connect('toggled', this._onStatusFilterChanged.bind(this));
-            this.toReadButton.connect('toggled', this._onStatusFilterChanged.bind(this));
-            this.readingButton.connect('toggled', this._onStatusFilterChanged.bind(this));
-            this.finishedButton.connect('toggled', this._onStatusFilterChanged.bind(this));
+            // Clicking the "Filter" button triggers a search
+            applyFilterButton.connect('clicked', () => {
+                this._onSearchChanged();
+                filterPopover.popdown(); // Close popover on filter
+            });
+
+            // The "Cancel" button clears the filter and refreshes the list
+            cancelButton.connect('clicked', () => {
+                this.tagsEntry.set_text('');
+                // Calling _onSearchChanged with empty text will show all results
+                this._onSearchChanged();
+                filterPopover.popdown();
+            });
+            // (Future filters like status dropdown will also be appended to popoverBox)
+
+            // --- Create the Button and Row ---
+            const filterButton = new Gtk.MenuButton({
+                icon_name: 'view-sort-descending-symbolic',
+                label: 'Filter',
+                popover: filterPopover, // Link the button to the popover
+            });
+
+            const filterGroup = new Adw.PreferencesGroup();
+            const filterRow = new Adw.ActionRow({
+                title: 'Filter Options',
+                subtitle: 'Filter by tags, status, etc.',
+            });
+            filterRow.add_suffix(filterButton);
+            filterGroup.add(filterRow);
+
+            // Add the entire row to the main vertical box
+            mainVbox.append(filterGroup);
 
             const scrolledWindow = new Gtk.ScrolledWindow({
                 hscrollbar_policy: Gtk.PolicyType.NEVER,
@@ -125,11 +180,6 @@ var LibraryPage = GObject.registerClass(
             this._onSearchChanged();
         }
 
-
-        _onStatusFilterChanged() {
-            // A change in the status filter should trigger a new search
-            this._onSearchChanged();
-        }
 
 
         _onNewEntryClicked() {
@@ -174,15 +224,10 @@ var LibraryPage = GObject.registerClass(
 
         _onSearchChanged() {
             const query = this.searchBar.get_text();
+            const tagsText = this.tagsEntry.get_text().trim();
+            const tags = tagsText ? tagsText.split(',').map(tag => tag.trim()).filter(Boolean) : [];
 
             let statusFilter = null;
-            if (this.toReadButton.get_active()) {
-                statusFilter = 'to-read';
-            } else if (this.readingButton.get_active()) {
-                statusFilter = 'reading';
-            } else if (this.finishedButton.get_active()) {
-                statusFilter = 'finished';
-            }
 
             // --- NEW LOGIC FOR SEARCH MODE ---
             let searchFields = ['title', 'abstract', 'personal_notes', 'authors'];
