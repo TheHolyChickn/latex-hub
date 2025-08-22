@@ -248,6 +248,7 @@ var LibraryPage = GObject.registerClass(
                 query: query,
                 fields: searchFields,
                 status: statusFilter,
+                tags: tags,
                 searchKeyResults: searchKeyResults,
             });
             this._populateList(results);
