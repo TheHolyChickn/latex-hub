@@ -132,7 +132,7 @@ function manageHomework() {
         '-kb-custom-2', 'Ctrl+x' // complete
     ];
 
-    const { key, index, _ } = rofi('Select course', options, rofiArgs);
+    const { key, index, _ } = rofi('Select assignment', options, rofiArgs);
 
     if (key === 0 && index !== -1) { // open
         sortedHomeworks[index].openHomework();

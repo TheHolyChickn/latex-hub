@@ -66,7 +66,7 @@ var Homework = class Homework {
         const lines = [
             '\\documentclass[11pt, letterpaper]{article}',
             preambleInputs,
-            "\\usepackage{titlepage}",
+            "\\usepackage{titlepageBU}", // TODO: change back to generic title page
             `\\title{${this.name}}`,
             `\\courseID{${courseID}}`,
             `\\courseSection{${courseSection}}`,

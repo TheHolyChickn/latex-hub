@@ -8,6 +8,7 @@ const { Courses } = imports.core.Courses;
 const { Homeworks } = imports.core.Homeworks;
 const { fetchTodaysEvents } = imports.core.Countdown;
 const { ConfigUtils } = imports.config.ConfigUtils;
+const {NewSemesterDialog } = imports.app.widgets.NewSemesterDialog;
 
 var DashboardPage = GObject.registerClass(
     {
@@ -138,6 +139,14 @@ var DashboardPage = GObject.registerClass(
                 hexpand: true,
                 vexpand: true,
             });
+            const mainVBox = new Gtk.Box({ // Changed to a VBox to stack the button
+                orientation: Gtk.Orientation.VERTICAL,
+                spacing: 10,
+                margin_top: 10, margin_bottom: 10,
+                margin_start: 10, margin_end: 10
+            });
+            frame.set_child(mainVBox);
+
             const mainHBox = new Gtk.Box({
                 orientation: Gtk.Orientation.HORIZONTAL,
                 spacing: 20,
@@ -146,7 +155,8 @@ var DashboardPage = GObject.registerClass(
                 halign: Gtk.Align.FILL,
                 valign: Gtk.Align.FILL,
             });
-            frame.set_child(mainHBox);
+            mainVBox.append(mainHBox); // Add the original HBox
+
 
             const statsBox = new Gtk.Box({
                 orientation: Gtk.Orientation.VERTICAL,
@@ -211,6 +221,24 @@ var DashboardPage = GObject.registerClass(
             }
             mainHBox.append(coursesBox);
 
+            mainVBox.append(new Gtk.Separator({ orientation: Gtk.Orientation.HORIZONTAL, margin_top: 10, margin_bottom: 5 }));
+
+            const newSemesterButton = new Gtk.Button({
+                label: 'Start New Semester Setup...',
+                halign: Gtk.Align.END,
+                css_classes: ['flat'],
+            });
+            newSemesterButton.connect('clicked', () => {
+                const dialog = new NewSemesterDialog(this.get_root());
+                dialog.connect('setup-complete', () => {
+                    if (this.app && typeof this.app.refreshAllPages === 'function') {
+                        this.app.refreshAllPages();
+                    }
+                })
+                dialog.present();
+            });
+            mainVBox.append(newSemesterButton);
+
             grid.attach(frame, 0, 1, 1, 1);
         }
 
@@ -242,6 +270,38 @@ var DashboardPage = GObject.registerClass(
             });
             frame.set_child(statusPage);
             grid.attach(frame, 1, 1, 1, 1);
+        }
+
+        _refreshDataAndUI() {
+            console.log("Dashboard: Refreshing data and UI...");
+            // Re-initialize the data sources
+            this.courses = new Courses();
+            this.homeworks = new Homeworks(this.courses);
+
+            // Clear and rebuild the widgets
+            // A simple way is to remove all children and call the build functions again
+            // A more efficient way would be to update them in-place, but this is robust
+            let child = this.get_first_child();
+            if (child) {
+                this.remove(child);
+            }
+
+            const mainGrid = new Gtk.Grid({
+                column_spacing: 20,
+                row_spacing: 20,
+                hexpand: true,
+                vexpand: true,
+                halign: Gtk.Align.FILL,
+                valign: Gtk.Align.FILL,
+                row_homogeneous: true,
+                column_homogeneous: true,
+            });
+            this.append(mainGrid);
+
+            this._buildTodaySchedule(mainGrid);
+            this._buildHomeworkSchedule(mainGrid);
+            this._buildCourseProgress(mainGrid);
+            this._buildGitStatusPlaceholder(mainGrid);
         }
     }
 );

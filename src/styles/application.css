@@ -115,3 +115,12 @@ button.suggested-action {
     border: none;
     border-radius: 8px;
 }
+
+.navigation-sidebar row:selected, row.selected {
+    background-color: var(--accent-color);
+}
+
+.navigation-sidebar row:selected label, row.selected label {
+    color: var(--accent-fg-color);
+    font-weight: bold;
+}

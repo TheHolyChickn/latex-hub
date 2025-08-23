@@ -346,6 +346,30 @@ var CoursesPage = GObject.registerClass(
             frame.set_child(placeholder);
             return frame;
         }
+
+        _refreshDataAndUI() {
+            console.log("CoursesPage: Refreshing data and UI...");
+            this.courses = new Courses();
+            this.homeworks = new Homeworks(this.courses);
+
+            // Re-populate the main course list in the sidebar
+            this._populateCourseList();
+
+            // Identify all pages that are NOT the placeholder
+            const pagesToRemove = [];
+            const pages = this.viewStack.get_pages();
+            for (let i = 0; i < pages.get_n_items(); i++) {
+                const page = pages.get_item(i); // This is the Adw.ViewStackPage
+                if (page.get_name() !== 'placeholder') {
+                    pagesToRemove.push(page.get_child()); // Get the actual widget to remove
+                }
+            }
+
+            // Remove them
+            pagesToRemove.forEach(widget => this.viewStack.remove(widget));
+
+            this.viewStack.set_visible_child_name('placeholder');
+        }
     }
 );
 

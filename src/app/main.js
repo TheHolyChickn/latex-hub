@@ -18,6 +18,7 @@ const { PreambleUtils } = imports.config.PreambleUtils;
 const { DashboardPage } = imports.app.widgets.DashboardPage;
 const { CoursesPage } = imports.app.widgets.CoursesPage;
 const { LibraryPage } = imports.app.widgets.LibraryPage;
+const { PreambleSettingsPage } = imports.app.widgets.PreambleSettingsPage;
 
 class LatexHubApp {
     constructor() {
@@ -88,9 +89,18 @@ class LatexHubApp {
         const libraryPage = new LibraryPage();
         contentStack.add_titled(libraryPage, 'library', 'Library');
 
+        const settingsPage = new PreambleSettingsPage();
+        contentStack.add_titled(settingsPage, 'settings', 'Settings');
+
         // placeholder pages
         this._addPlaceholderPage(contentStack, 'projects', 'Projects', 'folder-symbolic');
-        this._addPlaceholderPage(contentStack, 'settings', 'Settings', 'emblem-system-symbolic');
+        //this._addPlaceholderPage(contentStack, 'settings', 'Settings', 'emblem-system-symbolic');
+
+        dashboard.app = this;
+        this.refreshablePages = {
+            'dashboard': dashboard,
+            'courses': coursesPage,
+        };
 
         // Set the initial visible page
         contentStack.set_visible_child_name('dashboard');
@@ -181,6 +191,16 @@ class LatexHubApp {
         }
 
         stack.add_titled(box, name, title);
+    }
+
+    refreshAllPages() {
+        console.log("Main App: Refreshing all pages...");
+        if (this.refreshablePages['dashboard']) {
+            this.refreshablePages['dashboard']._refreshDataAndUI();
+        }
+        if (this.refreshablePages['courses']) {
+            this.refreshablePages['courses']._refreshDataAndUI();
+        }
     }
 
     _loadCSS() {
