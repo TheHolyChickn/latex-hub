@@ -349,7 +349,7 @@ var NewSemesterDialog = GObject.registerClass(
             }
         }
 
-        async _promptForTemplateName(defaultName) {
+        async _promptForTemplateName(defaultName) { // TODO: should also look for report-style templates
             return new Promise(resolve => {
                 const dialog = new Adw.MessageDialog({
                     transient_for: this,
@@ -376,14 +376,14 @@ var NewSemesterDialog = GObject.registerClass(
             });
         }
 
-        _generateMasterTexContent(courseConfig) {
+        _generateMasterTexContent(courseConfig) { // TODO: preamble should be default lecs preamble
             const preambleTemplateName = (courseConfig.homework_preambles && courseConfig.homework_preambles.length > 0) ? courseConfig.homework_preambles[0] : null;
             const preambleInputs = preambleTemplateName ? PreambleUtils.assemblePreambleFromTemplate(preambleTemplateName) : '';
 
             const lines = [
                 '\\documentclass[11pt, letterpaper]{report}',
                 preambleInputs,
-                '\\usepackage{titlepage}',
+                '\\usepackage{titlepageBU}',
                 `\\title{${courseConfig.title || ''}}`,
                 `\\courseID{${courseConfig.course_id || ''}}`,
                 `\\professor{${courseConfig.professor || ''}}`,
