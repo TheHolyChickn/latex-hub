@@ -1,5 +1,7 @@
-// src/core/LibraryItem.js
 'use strict';
+
+imports.gi.versions.GLib = '2.0';
+const { GLib } = imports.gi;
 
 var LibraryItem = class LibraryItem {
     /**
@@ -52,6 +54,17 @@ var LibraryItem = class LibraryItem {
     toString() {
         const authorStr = this.authors.length > 0 ? this.authors[0] : 'N/A';
         return `<LibraryItem ${this.id} [${this.entry_type}] "${this.title}" (${authorStr}, ${this.date.year})>`;
+    }
+
+    /**
+     * Opens the library item in Zathura if a local path exists.
+     */
+    open() {
+        if (!this.local_path) {
+            console.log('No local path found, aborting.');
+            return;
+        }
+        GLib.spawn_async(null, ["zathura", this.local_path], null, GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.DO_NOT_REAP_CHILD, null);
     }
 };
 

@@ -3,8 +3,9 @@
 'use strict';
 
 imports.gi.versions.Gtk = '4.0';
+imports.gi.versions.GLib = '2.0';
 imports.gi.versions.Adw = '1';
-const { GObject, Gtk, Adw, Gdk, Pango } = imports.gi;
+const { GObject, Gtk, Adw, Gdk, GLib, Pango } = imports.gi;
 
 const { Library } = imports.core.Library;
 const { NewLibraryItemDialog } = imports.app.widgets.NewLibraryItemDialog;
@@ -332,7 +333,11 @@ var LibraryPage = GObject.registerClass(
                     const pdfButton = new Gtk.Button();
                     const pdfContent = new Adw.ButtonContent({ label: 'Open PDF', icon_name: 'application-pdf-symbolic' });
                     pdfButton.set_child(pdfContent);
-                    pdfButton.connect('clicked', () => Gtk.show_uri(this.get_root(), `file://${currentItem.local_path}`, Gdk.CURRENT_TIME));
+                    //pdfButton.connect('clicked', () => Gtk.show_uri(this.get_root(), `file://${currentItem.local_path}`, Gdk.CURRENT_TIME));
+                    // TODO: dynamic pdf viewer
+                    pdfButton.connect('clicked', () => {
+                        GLib.spawn_async(null, ["zathura", currentItem.local_path], null, GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.DO_NOT_REAP_CHILD, null);
+                    });
                     buttonBox.append(pdfButton);
                 }
                 if (currentItem.bibtex) {

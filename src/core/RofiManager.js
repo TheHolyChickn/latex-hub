@@ -177,8 +177,7 @@ function manageLibrary(mode) {
             const selectedEntry = _selectLibraryEntry('Open PDF');
             if (selectedEntry && selectedEntry.local_path) {
                 try {
-                    // Using xdg-open for better desktop environment compatibility
-                    GLib.spawn_async(null, ["xdg-open", selectedEntry.local_path], null, GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.DO_NOT_REAP_CHILD, null);
+                    selectedEntry.open();
                 } catch (e) {
                     console.error(`Failed to open PDF: ${e.message}`);
                 }
@@ -202,6 +201,8 @@ function manageLibrary(mode) {
             break;
     }
 }
+
+
 
 
 var exports = {
