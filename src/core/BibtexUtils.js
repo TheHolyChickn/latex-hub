@@ -5,10 +5,24 @@
  * @param {object} data - The library item data.
  * @returns {string} A formatted BibTeX string.
  */
-function generateBibtex(data) {
-    const entryType = data.entry_type === 'book' ? '@book' : '@article';
+// src/core/BibtexUtils.js
 
-    // Use a custom bibtex_key if it exists, otherwise generate one.
+function generateBibtex(data) {
+    // Determine the BibTeX entry type more robustly
+    let entryType;
+    switch (data.entry_type) {
+        case 'book':
+            entryType = '@book';
+            break;
+        case 'article':
+        case 'paper':
+            entryType = '@article';
+            break;
+        default:
+            entryType = '@misc'; // A safe default for other types
+            break;
+    }
+
     const key = data.bibtex_key || (() => {
         const authorLastName = ((data.authors && data.authors[0]) || 'Unknown').split(' ').pop();
         const year = data.date && data.date.year ? data.date.year : 'UnknownYear';
@@ -19,13 +33,16 @@ function generateBibtex(data) {
     bibtexString += `  title={${data.title}},\n`;
     bibtexString += `  author={${(data.authors || []).join(' and ')}},\n`;
     bibtexString += `  year={${data.date && data.date.year ? data.date.year : ''}},\n`;
+
     if (data.publication_info) {
-        if (data.entry_type === 'paper' || data.entry_type === 'article') {
+        // Use the correct field based on the BibTeX type
+        if (entryType === '@article') {
             bibtexString += `  journal={${data.publication_info}},\n`;
-        } else {
+        } else if (entryType === '@book') {
             bibtexString += `  publisher={${data.publication_info}},\n`;
         }
     }
+
     if (data.arxiv_id) {
         bibtexString += `  eprint={${data.arxiv_id}},\n`;
         bibtexString += `  archivePrefix={arXiv},\n`;

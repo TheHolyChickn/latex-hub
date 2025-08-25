@@ -205,7 +205,8 @@ class LatexHubApp {
 
     _loadCSS() {
         const provider = new Gtk.CssProvider();
-        const path = GLib.build_filenamev([GLib.get_current_dir(), 'src', 'styles', 'application.css']);
+        //const path = GLib.build_filenamev([GLib.get_current_dir(), 'src', 'styles', 'application.css']);
+        const path = GLib.build_filenamev([GLib.get_home_dir(), 'WebstormProjects', 'latex-hub', 'src', 'styles', 'application.css'])
         provider.load_from_path(path);
 
         Gtk.StyleContext.add_provider_for_display(
