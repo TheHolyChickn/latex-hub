@@ -248,9 +248,10 @@ var Library = class Library {
         const itemToUpdate = this.getEntryById(itemId);
 
         if (itemToUpdate) {
+            itemToUpdate.update(updates);
 
             // Regenerate the BibTeX entry in case core fields changed
-            const newBibtex = generateBibtex(itemToUpdate._data, updates);
+            const newBibtex = generateBibtex(itemToUpdate._data);
             updates.bibtex = newBibtex;
             itemToUpdate.update({ bibtex: newBibtex });
 

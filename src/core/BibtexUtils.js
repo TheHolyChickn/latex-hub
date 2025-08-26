@@ -5,10 +5,9 @@
  * @param {object} data - The library item data.
  * @returns {string} A formatted BibTeX string.
  */
-// src/core/BibtexUtils.js
-
 function generateBibtex(data) {
     // Determine the BibTeX entry type more robustly
+    console.log(`Calling generateBibtex for ${data.id}`)
     let entryType;
     switch (data.entry_type) {
         case 'book':
@@ -23,11 +22,15 @@ function generateBibtex(data) {
             break;
     }
 
+    console.log(`Key: ${data.bibtex_key}`);
+
     const key = data.bibtex_key || (() => {
+        console.log(`Generating default key`)
         const authorLastName = ((data.authors && data.authors[0]) || 'Unknown').split(' ').pop();
         const year = data.date && data.date.year ? data.date.year : 'UnknownYear';
         return `${authorLastName}${year}`;
     })();
+    console.log(`Key: ${key}`);
 
     let bibtexString = `${entryType}{${key},\n`;
     bibtexString += `  title={${data.title}},\n`;

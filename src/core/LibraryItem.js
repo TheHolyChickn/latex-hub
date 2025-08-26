@@ -30,6 +30,8 @@ var LibraryItem = class LibraryItem {
     get related_entries() { return this._data.related_entries || []; }
     get table_of_contents() { return this._data.table_of_contents || []; }
     get key_items() { return this._data.key_items || []; }
+    get publication_info() { return this._data.publication_info || []; }
+    get bibtex_key() { return this._data.bibtex_key; }
 
     /**
      * Updates one or more properties of the item.
