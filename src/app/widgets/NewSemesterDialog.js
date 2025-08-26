@@ -306,6 +306,7 @@ var NewSemesterDialog = GObject.registerClass(
                 course_page_link: this.conf.coursePage.get_text(),
                 homework_preambles: [],
                 report_preambles: [],
+                library_keys: []
             };
 
             let selectedTemplateRow = null;
@@ -392,6 +393,8 @@ var NewSemesterDialog = GObject.registerClass(
                 '    \\tableofcontents',
                 '    % start lectures',
                 '    % end lectures',
+                '    \\bibliographystyle{alpha}',
+                '    \\bibliography{refs}',
                 '\\end{document}'
             ];
 
@@ -422,6 +425,8 @@ var NewSemesterDialog = GObject.registerClass(
                     const masterFile = courseDir.get_child('master.tex');
                     const masterContent = this._generateMasterTexContent(course.config);
                     masterFile.replace_contents(masterContent, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+
+                    courseDir.get_child('refs.bib').replace_contents('', null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
 
                     courseDir.get_child('master.tex.latexmain').replace_contents('', null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
                 }

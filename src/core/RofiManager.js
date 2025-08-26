@@ -187,10 +187,17 @@ function manageLibrary(mode) {
             break;
         }
         case 'cite': {
-            const selectedEntry = _selectLibraryEntry('Copy BibTeX Citation');
+            const courses = new Courses();
+            const currentCourse = courses.current;
+
+            if (!currentCourse) {
+                rofi('Error', ['No current course selected.'], ['-l', '1']);
+                return;
+            }
+
+            const selectedEntry = _selectLibraryEntry('Select citation to add');
             if (selectedEntry && selectedEntry.bibtex) {
-                // Print the bibtex citation to standard output
-                print(selectedEntry.bibtex);
+                currentCourse.addCitation(selectedEntry);
             } else if (selectedEntry) {
                 console.error(`Error: No BibTeX data found for entry "${selectedEntry.title}".`);
             }
@@ -201,7 +208,6 @@ function manageLibrary(mode) {
             break;
     }
 }
-
 
 
 

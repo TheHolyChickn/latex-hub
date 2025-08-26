@@ -38,9 +38,13 @@ var Course = class Course {
             department: "",
             college: "",
             professor: "",
+            syllabus_link: "",
+            office_hours: "",
+            course_page_link: "",
             section: "",
             homework_preambles: [],
-            report_preambles: []
+            report_preambles: [],
+            library_keys: []
         };
 
         if (infoFile.query_exists(null)) {
@@ -59,6 +63,44 @@ var Course = class Course {
             console.warn(`${INFO_FILE_NAME} not found for course ${this.name}. Using default info.`);
         }
         return infoData;
+    }
+
+    /**
+     * Adds a citation by adding a LibraryItem object to the library_keys
+     * @param {LibraryItem} libraryItem
+     */
+    addCitation(libraryItem) {
+        if (!this.info.library_keys.includes(libraryItem.id)) {
+            this.info.library_keys.push(libraryItem.id);
+            this._saveInfo();
+        }
+
+        const refsFile = this.path.get_child('refs.bib');
+        try {
+            const [success, contents] = refsFile.load_contents(null);
+            if (success) {
+                const existingBibtex = ByteArray.toString(contents);
+                if (!existingBibtex.includes(libraryItem.bibtex)) {
+                    const newContent = existingBibtex + '\n'+ libraryItem.bibtex + '\n';
+                    refsFile.replace_contents(newContent, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+                }
+            }
+        } catch (e) {
+            console.error(`Error adding library item ${libraryItem.title} to references for ${this.name}: ${e.message}`);
+        }
+    }
+
+    /**
+     * saves info
+     */
+    _saveInfo() {
+        const infoFile = this.path.get_child(INFO_FILE_NAME);
+        const infoContent = JSON.stringify(this.info, null, 4);
+        try {
+            infoFile.replace_contents(infoContent, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+        } catch (e) {
+            console.error(`Error saving info.json for ${this.name}: ${e.message}`);
+        }
     }
 
     /**
