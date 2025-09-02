@@ -8,9 +8,10 @@ const { GLib, Gio, Soup } = imports.gi;
 const ByteArray = imports.byteArray;
 
 const { ConfigManager } = imports.config.ConfigManager;
+const { ConfigUtils } = imports.config.ConfigUtils;
 const { Courses } = imports.core.Courses;
 
-const USERCALENDARID = 'primary';
+const USERCALENDARID = ConfigUtils.get('calendar_id');
 const TOKEN_PATH = GLib.build_filenamev([ConfigManager.getConfigDir(), 'countdown_google_token.json']);
 const CREDENTIALS_PATH = GLib.build_filenamev([GLib.get_current_dir(), 'credentials.json']);
 const DELAY_SECONDS = 60;
@@ -367,17 +368,14 @@ function updateDisplayedText() {
 
 
 function main() {
-    print("--- Countdown.js main() function has started ---");
     const mainLoop = new GLib.MainLoop(null, false);
 
     const onAuthComplete = (authSuccess) => {
         if (authSuccess) {
-            print("--- AUTHENTICATION SUCCEEDED ---");
             console.log("Authentication successful. Starting main logic.");
             fetchEventsAndManageSchedule();
             console.log("Countdown running. Press Ctrl+C to exit.");
         } else {
-            print("--- AUTHENTICATION FAILED ---");
             console.error('Authentication failed. Countdown logic will not run.');
             mainLoop.quit();
         }
@@ -386,12 +384,12 @@ function main() {
     try {
         console.log('Initializing Countdown Logic in main()...');
         if (!coursesInstance) coursesInstance = new Courses();
-        print("--- Courses instance initialized successfully. ---");
 
         for (const course of coursesInstance) {
             console.log(course.toString());
         }
 
+        // Signal handler to gracefully shut down the main loop
         const signalHandler = (signalNumber) => {
             console.log(`\nCaught signal ${signalNumber}, shutting down.`);
             mainLoop.quit();
@@ -405,12 +403,8 @@ function main() {
             console.error("CRITICAL: Could not find a method to handle system signals.");
         }
 
-        print("--- Starting Google Calendar authentication... ---");
         authenticate(onAuthComplete);
-        print("--- Starting the main event loop (this is a blocking call). ---");
         mainLoop.run();
-        console.log('Started main logic...');
-
     } catch (e) {
         console.error("Unhandled error in main:", e.message);
         console.error(e.stack);

@@ -140,7 +140,7 @@ async function main() {
 
     // Check if being run by browser (no arguments will be passed in this case)
     // note: normally running with len 0 should printHelp(). will need a second special check later
-    const knownCommands = ['courses', 'lectures', 'homework', 'view', 'library', 'pdf', 'dir', 'help']
+    const knownCommands = ['courses', 'lectures', 'homework', 'view', 'library', 'pdf', 'dir', 'help', 'countdown']
     const command = ARGV[0];
     const isNativeMessageCall = !knownCommands.includes(command);
 
