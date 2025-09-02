@@ -365,15 +365,19 @@ function updateDisplayedText() {
     console.log(`[${now.format('%H:%M:%S')}] ${textToDisplay || '(No current/upcoming events for today)'}`);
 }
 
+
 function main() {
+    print("--- Countdown.js main() function has started ---");
     const mainLoop = new GLib.MainLoop(null, false);
 
     const onAuthComplete = (authSuccess) => {
         if (authSuccess) {
+            print("--- AUTHENTICATION SUCCEEDED ---");
             console.log("Authentication successful. Starting main logic.");
             fetchEventsAndManageSchedule();
             console.log("Countdown running. Press Ctrl+C to exit.");
         } else {
+            print("--- AUTHENTICATION FAILED ---");
             console.error('Authentication failed. Countdown logic will not run.');
             mainLoop.quit();
         }
@@ -382,6 +386,7 @@ function main() {
     try {
         console.log('Initializing Countdown Logic in main()...');
         if (!coursesInstance) coursesInstance = new Courses();
+        print("--- Courses instance initialized successfully. ---");
 
         for (const course of coursesInstance) {
             console.log(course.toString());
@@ -400,8 +405,11 @@ function main() {
             console.error("CRITICAL: Could not find a method to handle system signals.");
         }
 
+        print("--- Starting Google Calendar authentication... ---");
         authenticate(onAuthComplete);
+        print("--- Starting the main event loop (this is a blocking call). ---");
         mainLoop.run();
+        console.log('Started main logic...');
 
     } catch (e) {
         console.error("Unhandled error in main:", e.message);
@@ -412,7 +420,7 @@ function main() {
     }
 }
 
-var exports = { fetchTodaysEvents };
+var exports = { fetchTodaysEvents, main };
 
 //if (System.programInvocationName.endsWith('Countdown.js')) {
 //    main();

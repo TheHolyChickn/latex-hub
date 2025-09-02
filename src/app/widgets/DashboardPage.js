@@ -6,9 +6,9 @@ const { GObject, Gtk, Adw, GLib } = imports.gi;
 
 const { Courses } = imports.core.Courses;
 const { Homeworks } = imports.core.Homeworks;
-const { fetchTodaysEvents } = imports.core.Countdown;
+const Countdown = imports.core.Countdown;
 const { ConfigUtils } = imports.config.ConfigUtils;
-const {NewSemesterDialog } = imports.app.widgets.NewSemesterDialog;
+const {  NewSemesterDialog } = imports.app.widgets.NewSemesterDialog;
 
 var DashboardPage = GObject.registerClass(
     {
@@ -71,7 +71,7 @@ var DashboardPage = GObject.registerClass(
             scrolledWindow.set_child(box);
 
 
-            fetchTodaysEvents(events => {
+            Countdown.fetchTodaysEvents(events => {
                 if (events.length === 0) {
                     box.append(new Gtk.Label({ label: "No events scheduled for today.", halign: Gtk.Align.CENTER, css_classes: ['dim-label'] }));
                     return;

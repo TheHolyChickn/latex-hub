@@ -30,6 +30,7 @@ imports.searchPath.unshift(GLib.build_filenamev([projectRoot, 'src']));
 const RofiManager = imports.core.RofiManager;
 const { Courses } = imports.core.Courses;
 const { Library } = imports.core.Library;
+const Countdown = imports.core.Countdown;
 
 // ... (The rest of the file: openPdf, openDir, printHelp, main switch statement)
 // ... (No changes needed in the logic of these functions)
@@ -191,6 +192,9 @@ async function main() {
             break;
         case 'pdf':
             openPdf();
+            break;
+        case 'countdown':
+            Countdown.main();
             break;
         case 'dir':
             openDir();
